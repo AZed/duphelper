@@ -1,0 +1,664 @@
+#!/usr/bin/perl
+use warnings; use strict;
+use 5.010;
+
+=head1 NAME
+
+duphelper - duplicity backup helper system
+
+=head1 SYNOPSIS
+
+ duphelper COMMAND arg1 arg2 --opt1 --opt2
+
+See also L</EXAMPLES>.
+
+=cut
+
+use Config::IniFiles;
+use File::Basename;
+use File::Slurp qw(slurp);   # Also exports 'read_file' and 'write_file'
+use Getopt::Long;
+use Sys::Hostname;
+
+# Exit values
+use constant EXIT_SUCCESS	=> 0;
+use constant EXIT_BADCOMMAND	=> 1;
+use constant EXIT_SYSTEMFAIL    => 2;
+use constant EXIT_DUPLICITYFAIL => 3;
+use constant EXIT_CONFIGERROR   => 4;
+use constant EXIT_INTERNALERROR => 5;
+
+
+########################################
+########## CONFIGURATION FILE ##########
+########################################
+
+my $defaultconfig = slurp(\*DATA);
+
+# Check first /usr/local/etc/duplicity and then /usr/local/duplicity
+my $config;
+my $configfile1 = "/usr/local/etc/duplicity/duphelper.cfg";
+my $configfile2 = "/etc/duplicity/duphelper.cfg";
+
+if(-f $configfile1)
+{
+    $config = Config::IniFiles->new( -file => $configfile1 );
+}
+elsif(-f $configfile2)
+{
+    $config = Config::IniFiles->new( -file => $configfile2 );
+}
+$config = Config::IniFiles->new() unless($config);
+
+
+#####################################
+########## OPTION HANDLING ##########
+#####################################
+
+# Array option pre-handling
+my @config_encryptkeys = $config->val('encryption','encrypt-key');
+my @config_rootexclude = $config->val('duphelper','rootexclude');
+
+# Default option values
+my %opt = (
+    'archive-dir'	=> $config->val('duplicity','archive-dir') || '/var/cache/duplicity',
+    'archive-dir-hostname' => $config->val('duphelper','archive-dir-hostname') || 1,
+    'cleancount'	=> $config->val('duphelper','cleancount') || 2,
+    'cleaninterval'	=> $config->val('duphelper','cleaninterval') || '1Y',
+    'dry-run'		=> undef,
+    'encrypt-key'	=> \@config_encryptkeys || undef,
+    'exclude-device-files' => $config->val('duplicity','exclude-device-files') || 0,
+    'exclude-other-filesystems' => $config->val('duplicity','exclude-other-filesystems') || 0,
+    'file-to-restore'	=> undef,
+    'fullinterval'	=> $config->val('duphelper','fullinterval') || '1M',
+    'gpg-options'	=> $config->val('encryption','gpg-options') || '',
+    'home'		=> $config->val('duphelper','home') || undef,
+    'hostname'		=> $config->val('duphelper','hostname') || hostname(),
+    'log-file'		=> $config->val('duplicity','log-file') || undef,
+    'no-encryption'	=> $config->val('encryption','no-encryption') || 0,
+    'no-print-statistics' => $config->val('duplicity','no-print-statistics') || 0,
+    'noop'		=> 0,
+    'remotedir'		=> $config->val('duphelper','remotedir') || undef,
+    'remotehost'	=> $config->val('duphelper','remotehost') || undef,
+    'remoteproto'	=> $config->val('duphelper','remoteproto') || undef,
+    'remoteuser'	=> $config->val('duphelper','remoteuser') || undef,
+    'rootexclude'	=> \@config_rootexclude || undef,
+    'ssh-options'	=> $config->val('duplicity','ssh-options') || '',
+    'time'		=> undef,
+    'urlbase'		=> $config->val('duphelper','urlbase') || undef,
+    'verbosity'		=> $config->val('duplicity','verbosity') || 4,
+    'volsize'		=> $config->val('duplicity','volsize') || 25,
+   );
+
+GetOptions(
+    \%opt,
+    'archive-dir',
+    'cleaninterval=s',
+    'encrypt-key=s@',
+    'dry-run',
+    'exclude=s@',
+    'exclude-device-files',
+    'file-to-restore=s',
+    'fullinterval=s',
+    'gpg-options=s',
+    'home=s',
+    'hostname|h=s',
+    'log-file=s',
+    'noop',
+    'no-encryption',
+    'no-print-statistics',
+    'remotedir=s',
+    'remotehost=s',
+    'remoteproto=s',
+    'remoteuser=s',
+    'rootexclude=s@',
+    'ssh-options=s',
+    'time|restore-time|t=s',
+    'urlbase=s',
+    'verbosity|v=s',
+    'volsize=i',
+   );
+
+if($opt{'archive-dir-hostname'}) {
+    $opt{'archive-dir'} = $opt{'archive-dir'} . '/' . $opt{'hostname'};
+}
+
+
+#######################################
+########## DISPATCH HANDLING ##########
+#######################################
+
+my %dispatch = (
+    'dupback' => \&dupback,
+    'dupclean' => \&dupclean,
+    'dupcleancount' => \&dupcleancount,
+    'dupget' => \&dupget,
+    'duplist' => \&duplist,
+    'dupstat' => \&dupstat,
+    'dupver' => \&dupver,
+   );
+
+my $command = basename($0);
+given ($command) {
+    when (defined $dispatch{$_}) { $dispatch{$command}(@ARGV); }
+    default {
+        $command = shift;
+        given ($command) {
+            when (undef) {
+                print {*STDERR} "I don't know what to do!\n";
+                print {*STDERR} "I was invoked as: $0 (with no arguments)\n";
+                print {*STDERR} "(I expected to be invoked either with the name of a valid command,\nor with a valid command as my first argument.)\n";
+                print {*STDERR} "Valid commands are: ",join(' ',sort keys %dispatch),"\n";
+                exit EXIT_BADCOMMAND;
+            }
+            when (defined $dispatch{$_}) { $dispatch{$command}(@ARGV); }
+            default {
+                print {*STDERR} "I don't know what to do!\n";
+                print {*STDERR} "I was invoked as: $0 $command\n";
+                print {*STDERR} "(I expected to be invoked either with the name of a valid command,\nor with a valid command as my first argument.)\n";
+                print {*STDERR} "Valid commands are: ",join(' ',sort keys %dispatch),"\n";
+                exit EXIT_BADCOMMAND;
+            }
+        }
+    }
+}
+
+
+#########################################
+########## DISPATCHED COMMANDS ##########
+#########################################
+
+=head1 COMMANDS
+
+=head2 C<dupback>
+
+Back up a specified path
+
+=head3 Usage
+
+ dupback /path [FULLINTERVAL]
+
+=head3 Examples
+
+=head4 Most common use
+
+ dupback /
+
+=head4 Force a full (non-incremental) backup
+
+ dupback / now
+
+=cut
+
+sub dupback {
+    my $basepath = shift;
+    my $dashpath = dashpath($basepath);
+    my $remoteurl = remoteurl($dashpath);
+
+    my @syscmd = (
+        "duplicity",$basepath,$remoteurl,
+        "--archive-dir",$opt{'archive-dir'},
+        "--name",$dashpath,
+        "--verbosity",$opt{'verbosity'},
+        "--volsize",$opt{'volsize'},
+       );
+    if($opt{'dry-run'}) {
+        push(@syscmd,'--dry-run');
+    }
+    if($opt{'fullinterval'}) {
+        push(@syscmd,'--full-if-older-than',$opt{'fullinterval'});
+    }
+    if($opt{'no-print-statistics'}) {
+        push(@syscmd,'--no-print-statistics');
+    }
+    if($opt{'ssh-options'}) {
+        push(@syscmd,'--ssh-options',$opt{'ssh-options'});
+    }
+    if($opt{'exclude-device-files'}) {
+        push(@syscmd,'--exclude-device-files');
+    }
+    if($opt{'log-file'}) {
+        push(@syscmd,'--log-file',$opt{'log-file'});
+    }
+
+    # Root exclusions
+    if($basepath eq '/') {
+        if($opt{'rootexclude'}) {
+            foreach my $excl (@{$opt{'rootexclude'}}) {
+                push(@syscmd,'--exclude',$excl);
+            }
+        }
+    }
+
+    # Encryption option handling
+    if($opt{'no-encryption'}) {
+        push(@syscmd,'--no-encryption');
+    }
+    if($opt{'gpg-options'}) {
+        push(@syscmd,'--gpg-options',$opt{'gpg-options'});
+    }
+    if($opt{'encrypt-key'}) {
+        foreach my $key (@{$opt{'encrypt-key'}}) {
+            push(@syscmd,'--encrypt-key',$key);
+        }
+    }
+
+    # Setting the home directory may be desirable to force root's
+    # .gnupg directory to be used.
+    if($opt{'home'}) {
+        $ENV{'home'} = $opt{'home'};
+    }
+
+    if($opt{'noop'}) {
+        say "Not executing: ",join(' ',@syscmd);
+        exit EXIT_SUCCESS;
+    }
+
+    system(@syscmd);
+    exit_system_result($?,@syscmd);
+}
+
+
+=head2 C<dupclean>
+
+Remove all backups older than the 'cleaninterval' time.
+
+=head3 Usage
+
+ dupclean <path>
+
+If <path> is not specified, defaults to '/'
+
+=cut
+
+sub dupclean {
+    my $basepath = shift;
+    if(!defined $basepath) { $basepath = '/'; }
+    my $dashpath = dashpath($basepath);
+    my $remoteurl = remoteurl($dashpath);
+
+    my @syscmd = (
+        "duplicity","remove-older-than",$opt{'cleaninterval'},
+        "--extra-clean","--force",
+        "--archive-dir",$opt{'archive-dir'},
+        "--name",$dashpath,
+        "--verbosity",$opt{'verbosity'},
+       );
+    if($opt{'dry-run'}) {
+        push(@syscmd,'--dry-run');
+    }
+    if($opt{'no-print-statistics'}) {
+        push(@syscmd,'--no-print-statistics');
+    }
+    if($opt{'ssh-options'}) {
+        push(@syscmd,'--ssh-options',$opt{'ssh-options'});
+    }
+
+    if($opt{'noop'}) {
+        say "Not executing: ",join(' ',@syscmd);
+        exit EXIT_SUCCESS;
+    }
+
+    system(@syscmd);
+    exit_system_result($?,@syscmd);
+}
+
+
+=head2 C<dupcleancount>
+
+Remove all backups except the last 'cleancount' backups.
+
+=head3 Usage
+
+ dupcleancount <path> <count>
+
+If <path> is not specified, defaults to '/'
+
+Also, <path> must be specified to use <count> as an argument (though
+the count can also be specified with --cleanount)
+
+=cut
+
+sub dupcleancount {
+    my ($basepath,$count) = @_;
+
+    if(!defined $basepath) { $basepath = '/'; }
+    my $dashpath = dashpath($basepath);
+    my $remoteurl = remoteurl($dashpath);
+
+    if(defined $count) {
+        $opt{'cleancount'} = $count;
+    }
+
+    my @syscmd = (
+        "duplicity","remove-all-but-n-full",$opt{'cleancount'},
+        "--extra-clean","--force",
+        "--archive-dir",$opt{'archive-dir'},
+        "--name",$dashpath,
+        "--verbosity",$opt{'verbosity'},
+       );
+    if($opt{'dry-run'}) {
+        push(@syscmd,'--dry-run');
+    }
+    if($opt{'no-print-statistics'}) {
+        push(@syscmd,'--no-print-statistics');
+    }
+    if($opt{'ssh-options'}) {
+        push(@syscmd,'--ssh-options',$opt{'ssh-options'});
+    }
+    push(@syscmd,$remoteurl);
+
+    if($opt{'noop'}) {
+        say "Not executing: ",join(' ',@syscmd);
+        exit EXIT_SUCCESS;
+    }
+
+    system(@syscmd);
+    exit_system_result($?,@syscmd);
+}
+
+
+=head2 C<dupget>
+
+Retrieve files/directories from a Duplicity archive
+
+=head3 Usage
+
+ dupget /archive/path [outputname] [file-to-restore]
+
+The default is to retrieve the entire backup archive into the current
+directory, which must be empty.
+
+=head3 Examples
+
+ dupget / /opt/local/bin usr/local/bin
+
+ dupget /usr/local /opt/local/bin bin
+
+ dupget -h otherhost / /home home
+
+=cut
+
+sub dupget {
+    my ($basepath,$localpath,$target) = @_;
+
+    if(!defined $basepath) { $basepath = '/'; }
+    my $dashpath = dashpath($basepath);
+    my $remoteurl = remoteurl($dashpath);
+
+    $localpath = "." unless $localpath;
+
+    my @syscmd = (
+        "duplicity","restore",$remoteurl,
+        "--archive-dir",$opt{'archive-dir'},
+        "--name",$dashpath,
+        "--verbosity",$opt{'verbosity'},
+       );
+    if($opt{'dry-run'}) {
+        push(@syscmd,'--dry-run');
+    }
+    if($opt{'no-print-statistics'}) {
+        push(@syscmd,'--no-print-statistics');
+    }
+    if($opt{'ssh-options'}) {
+        push(@syscmd,'--ssh-options',$opt{'ssh-options'});
+    }
+    if($opt{'time'}) {
+        push(@syscmd,'--time',$opt{'time'});
+    }
+    if($target) {
+        push(@syscmd,'--file-to-restore',$target);
+    }
+    push(@syscmd,$localpath);
+
+    if($opt{'noop'}) {
+        say "Not executing: ",join(' ',@syscmd);
+        exit EXIT_SUCCESS;
+    }
+
+    system(@syscmd);
+    exit_system_result($?,@syscmd);
+}
+
+
+=head2 C<duplist>
+
+List all files contained within the most recent backup chain
+
+=head3 Usage
+
+ duplist <path>
+
+If <path> is not specified, defaults to '/'
+
+=cut
+
+sub duplist {
+    my $basepath = shift;
+    if(!defined $basepath) { $basepath = '/'; }
+    my $dashpath = dashpath($basepath);
+    my $remoteurl = remoteurl($dashpath);
+
+    my @syscmd = (
+        "duplicity","list-current-files",$remoteurl,
+        "--archive-dir",$opt{'archive-dir'},
+        "--name",$dashpath,
+       );
+    if($opt{'dry-run'}) {
+        push(@syscmd,'--dry-run');
+    }
+    if($opt{'ssh-options'}) {
+        push(@syscmd,'--ssh-options',$opt{'ssh-options'});
+    }
+
+    if($opt{'noop'}) {
+        say "Not executing: ",join(' ',@syscmd);
+        exit EXIT_SUCCESS;
+    }
+
+    system(@syscmd);
+    exit_system_result($?,@syscmd);
+}
+
+
+=head2 C<dupstat>
+
+Show backup status
+
+=head3 Usage
+
+ dupstat <path>
+
+If <path> is not specified, defaults to '/'
+
+=cut
+
+sub dupstat {
+    my $basepath = shift;
+    if(!defined $basepath) { $basepath = '/'; }
+    my $dashpath = dashpath($basepath);
+    my $remoteurl = remoteurl($dashpath);
+
+    my @syscmd = (
+        "duplicity","collection-status",$remoteurl,
+        "--archive-dir",$opt{'archive-dir'},
+        "--name",$dashpath,
+        "--verbosity",$opt{'verbosity'},
+       );
+    if($opt{'dry-run'}) {
+        push(@syscmd,'--dry-run');
+    }
+    if($opt{'no-print-statistics'}) {
+        push(@syscmd,'--no-print-statistics');
+    }
+    if($opt{'ssh-options'}) {
+        push(@syscmd,'--ssh-options',$opt{'ssh-options'});
+    }
+
+    if($opt{'noop'}) {
+        say "Not executing: ",join(' ',@syscmd);
+        exit EXIT_SUCCESS;
+    }
+
+    system(@syscmd);
+    exit_system_result($?,@syscmd);
+}
+
+
+#######################################
+########## HELPER FUNCTIONS ###########
+#######################################
+
+sub dashpath {
+    # Convert a path with or without a leading slash from /a/b/c/d to
+    # @a-b-c-d, generally for use in setting up backups.
+    my $path = shift;
+
+    die unless $path;
+
+    $path =~ s|^/|@|;
+    $path =~ s|/|-|g;
+    return $path;
+}
+
+sub exit_system_result {
+    # Parse the result of the duplicity system call and exit appropriately.
+    # Note: THIS ALWAYS EXITS!
+
+    my $retval = shift;
+    my @syscmd = @_;
+
+    if ( ($? >> 8) == 0 )
+    {
+        exit EXIT_SUCCESS;
+    }
+    elsif ($? == -1) {
+        print {*STDERR} "Failed to execute: $!\n";
+        print {*STDERR} "System call: ",join(' ',@syscmd);
+        exit EXIT_SYSTEMFAIL;
+    }
+    elsif ($? & 127) {
+        printf {*STDERR} "Child died with signal %d, %s coredump\n",
+          ($? & 127), ($? & 128) ? 'with' : 'without';
+        print {*STDERR} "System call: ",join(' ',@syscmd);
+        exit EXIT_DUPLICITYFAIL;
+    }
+    else {
+        printf {*STDERR} "Child exited with value %d\n", $? >> 8;
+        print {*STDERR} "System call: ",join(' ',@syscmd);
+        exit EXIT_DUPLICITYFAIL;
+   }
+}
+
+sub remoteurl {
+    # Generate a full remote URL string from the option data and a
+    # provided dashpath as an argument.
+
+    my $dashpath = shift;
+
+    if(! $dashpath) {
+        print {*STDERR} "FATAL: attempted to generate a remote URL with no path!\n";
+        print {*STDERR} "(This should be impossible.  Please file a bug report.)\n";
+        exit EXIT_INTERNALERROR;
+    }
+
+    if(! $opt{'remoteproto'}) {
+        print {*STDERR}
+          "FATAL: attempted to generate a remote URL, but the remote protocol was not defined!\n";
+        print {*STDERR} "(You probably need to check your configuration.)\n";
+        exit EXIT_CONFIGERROR;
+    }
+    if(! $opt{'remoteuser'}) {
+        print {*STDERR}
+          "FATAL: attempted to generate a remote URL, but the remote user was not defined!\n";
+        print {*STDERR} "(You probably need to check your configuration.)\n";
+        exit EXIT_CONFIGERROR;
+    }
+    if(! $opt{'remotehost'}) {
+        print {*STDERR}
+          "FATAL: attempted to generate a remote URL, but the remote host was not defined!\n";
+        print {*STDERR} "(You probably need to check your configuration.)\n";
+        exit EXIT_CONFIGERROR;
+    }
+    if(! $opt{'remotedir'}) {
+        print {*STDERR}
+          "FATAL: attempted to generate a remote URL, but the remote directory was not defined!\n";
+        print {*STDERR} "(You probably need to check your configuration.)\n";
+        exit EXIT_CONFIGERROR;
+    }
+
+    my $remoteurl =
+      $opt{'remoteproto'} . '://'
+      . $opt{'remoteuser'} . '@' . $opt{'remotehost'} . $opt{'remotedir'}
+      . '/' . $opt{'hostname'} . '/' . $dashpath;
+    return $remoteurl;
+}
+
+
+##########################
+########## DATA ##########
+##########################
+
+__DATA__
+#
+# duphelper.cfg
+#
+# Configuration file for Duplicity Helper
+#
+
+[duphelper]
+# If this is set nonzero, then the hostname will be appended to the
+# archive dir.  Doing this lets you restore machines other than the
+# current one, but is otherwise just wasted path length.
+archive-dir-hostname=1
+
+# The number of backups to keep when purging backups with dupcleancount
+cleancount=2
+
+# The default time after which old backups are purged by dupclean
+cleaninterval=1Y
+
+# The default time after which a full backup is forced
+fullinterval=1M
+
+# Override the default detected hostname here
+# Don't do this unless you know what you are doing
+# hostname=myhostname
+
+# Remote protocol, user, host, and backup path
+# This will be used to generate the remote URL in the format:
+# {remoteproto}://{remoteuser}@{remotehost}{remotedir}
+#remoteproto=ssh
+#remoteuser=backup
+#remotehost=mybackuphost
+#remotedir=/duplicity
+
+# rootexclude directories are excluded from backups of '/'
+rootexclude=/dev
+rootexclude=/lost+found
+rootexclude=/proc
+rootexclude=/sys
+rootexclude=/var/cache/duplicity
+
+
+[duplicity]
+archive-dir=/var/cache/duplicity
+exclude-device-files=1
+exclude-other-filesystems=0
+log-file=/var/log/duplicity.log
+no-print-statistics=1
+#ssh-options=-oPort=2226 -oIdentityFile=/usr/local/share/misc/backup-key
+verbosity=1
+volsize=25
+
+
+[encryption]
+# Set no-encryption to 1 to completely disable encryption
+no-encryption=0
+
+# Encryption key list
+#encrypt-key=DEADBEEF
+#encrypt-key=BEEFDEAD
+
+# Options passed through to GnuPG
+#gpg-options=--trust-model=always
