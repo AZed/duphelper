@@ -16,7 +16,6 @@ See also L</EXAMPLES>.
 
 use Config::IniFiles;
 use File::Basename;
-use File::Slurp qw(slurp);   # Also exports 'read_file' and 'write_file'
 use Getopt::Long;
 use Sys::Hostname;
 
@@ -32,8 +31,6 @@ use constant EXIT_INTERNALERROR => 5;
 ########################################
 ########## CONFIGURATION FILE ##########
 ########################################
-
-my $defaultconfig = slurp(\*DATA);
 
 # Check first /usr/local/etc/duplicity and then /usr/local/duplicity
 my $config;
