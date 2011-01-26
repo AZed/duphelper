@@ -246,6 +246,8 @@ sub dupback {
         $ENV{'home'} = $opt{'home'};
     }
 
+    remote_create_dir($opt{'remoteproto'});
+
     if($opt{'noop'}) {
         say "Not executing: ",join(' ',@syscmd);
         exit EXIT_SUCCESS;
@@ -545,6 +547,30 @@ sub exit_system_result {
         print {*STDERR} "System call: ",join(' ',@syscmd);
         exit EXIT_DUPLICITYFAIL;
    }
+}
+
+sub remote_create_dir {
+    # Create the destination directory if it does not yet exist
+
+    my $proto = shift;
+
+    given ($proto) {
+        when (/^ssh/) {
+            my $cmd = "echo '-mkdir duplicity/" . $opt{'hostname'}
+                    . "' | sftp -b - " . $opt{'ssh-options'}
+                    . " 2> /dev/null > /dev/null";
+
+            if($opt{'noop'}) {
+                say "Not executing: $cmd";
+            }
+            else {
+                system($cmd);
+            }
+        }
+        default {
+            print {*STDERR} "WARNING: unable to pre-create remote directory with protocol $proto\n";
+        }
+    }
 }
 
 sub remoteurl {
