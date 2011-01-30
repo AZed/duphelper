@@ -192,6 +192,12 @@ sub dupback {
     my $dashpath = dashpath($basepath);
     my $remoteurl = remoteurl($dashpath);
 
+    if (! $basepath) {
+        print {*STDERR} "You must specify a base path to back up!\n";
+        print {*STDERR} "(Try 'dupback /' for the entire system.)\n";
+        exit EXIT_BADCOMMAND;
+    }
+
     my @syscmd = (
         "duplicity",$basepath,$remoteurl,
         "--archive-dir",$opt{'archive-dir'},
@@ -513,7 +519,10 @@ sub dashpath {
     # @a-b-c-d, generally for use in setting up backups.
     my $path = shift;
 
-    die unless $path;
+    if (! $path) {
+        print {*STDERR} "FATAL: dashpath called with no argument!\n";
+        exit EXIT_INTERNALERROR;
+    }
 
     $path =~ s|^/|@|;
     $path =~ s|/|-|g;
