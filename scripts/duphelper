@@ -10,7 +10,7 @@ duphelper - duplicity backup helper system
 
  duphelper COMMAND arg1 arg2 --opt1 --opt2
 
-See also L</EXAMPLES>.
+See also Usage and Examples in the documentation for each COMMAND, below.
 
 =cut
 
@@ -18,6 +18,7 @@ use Config::IniFiles;
 use File::Basename;
 use Getopt::Long;
 use Sys::Hostname;
+use Time::localtime;
 
 # Exit values
 use constant EXIT_SUCCESS	=> 0;
@@ -79,6 +80,7 @@ my %opt = (
     'remotehost'	=> $config->val('duphelper','remotehost') || undef,
     'remoteproto'	=> $config->val('duphelper','remoteproto') || undef,
     'remoteuser'	=> $config->val('duphelper','remoteuser') || undef,
+    'remoteym'		=> $config->val('duphelper','remoteym') || 0,
     'rootexclude'	=> \@config_rootexclude || undef,
     'ssh-options'	=> $config->val('duplicity','ssh-options') || '',
     'time'		=> undef,
@@ -108,6 +110,7 @@ GetOptions(
     'remotehost=s',
     'remoteproto=s',
     'remoteuser=s',
+    'remoteym=s',
     'rootexclude=s@',
     'ssh-options=s',
     'time|restore-time|t=s',
@@ -119,6 +122,9 @@ GetOptions(
 if($opt{'archive-dir-hostname'}) {
     $opt{'archive-dir'} = $opt{'archive-dir'} . '/' . $opt{'hostname'};
 }
+
+# Current year and month as a 6-digit string, used when remoteym is
+my $yearmonth = sprintf("%04d%02d",localtime->year()+1900,localtime->mon()+1);
 
 
 #######################################
@@ -572,8 +578,29 @@ sub remote_create_dir {
             if($opt{'noop'}) {
                 say "Not executing: $cmd";
             }
-            else {
-                system($cmd);
+            else { system($cmd); }
+
+            # An additional directory level needs to be created when
+            # remoteym is in use
+            my $ymdir;
+            given ($opt{'remoteym'}) {
+                break unless $opt{'remoteym'};
+                when (1) { $ymdir = $yearmonth; }
+                when (/\d{6}/) { $ymdir = $opt{'remoteym'}; }
+                default {
+                    print {*STDERR} "WARNING: Ignoring invalid remoteym option: "
+                                    . $opt{'remoteym'} . "\n";
+                }
+            }
+            if($ymdir) {
+                $cmd = "echo '-mkdir duplicity/" . $opt{'hostname'}
+                    . '/' . $ymdir . "' | sftp -b - " . $opt{'ssh-options'}
+                    . " 2> /dev/null > /dev/null";
+
+                if($opt{'noop'}) {
+                    say "Not executing: $cmd";
+                }
+                else { system($cmd); }
             }
         }
         default {
@@ -622,7 +649,19 @@ sub remoteurl {
     my $remoteurl =
       $opt{'remoteproto'} . '://'
       . $opt{'remoteuser'} . '@' . $opt{'remotehost'} . $opt{'remotedir'}
-      . '/' . $opt{'hostname'} . '/' . $dashpath;
+      . '/' . $opt{'hostname'};
+
+    given ($opt{'remoteym'}) {
+        break unless $opt{'remoteym'};
+        when (1) { $remoteurl .= '/' . $yearmonth; }
+        when (/\d{6}/) { $remoteurl .= '/' . $opt{'remoteym'}; }
+        default {
+            print {*STDERR} "WARNING: Ignoring invalid remoteym option: "
+                            . $opt{'remoteym'} . "\n";
+        }
+    }
+
+    $remoteurl .= '/' . $dashpath;
     return $remoteurl;
 }
 
@@ -664,6 +703,14 @@ fullinterval=1M
 #remoteuser=backup
 #remotehost=mybackuphost
 #remotedir=/duplicity
+
+# Append a YYYYMM directory to the remote path after the hostname
+# (this is to put a limit on the local cache when many backups are kept)
+# If 0 (or undefined), does not append anything (uses just the hostname)
+# If 1, uses the current year and month
+# If a six-digit numeric value is provided, uses that
+# If anything else, a warning is displayed and just the hostname is used
+#remoteym=0
 
 # rootexclude directories are excluded from backups of '/'
 rootexclude=/dev
