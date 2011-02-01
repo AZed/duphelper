@@ -572,7 +572,8 @@ sub remote_create_dir {
     given ($proto) {
         when (/^ssh/) {
             my $cmd = "echo '-mkdir duplicity/" . $opt{'hostname'}
-                    . "' | sftp -b - " . $opt{'ssh-options'}
+                    . "' | sftp -b - " . $opt{'ssh-options'} . " "
+                    . $opt{'remoteuser'} . '@' . $opt{'remotehost'}
                     . " 2> /dev/null > /dev/null";
 
             if($opt{'noop'}) {
@@ -595,6 +596,7 @@ sub remote_create_dir {
             if($ymdir) {
                 $cmd = "echo '-mkdir duplicity/" . $opt{'hostname'}
                     . '/' . $ymdir . "' | sftp -b - " . $opt{'ssh-options'}
+                    . " " . $opt{'remoteuser'} . '@' . $opt{'remotehost'}
                     . " 2> /dev/null > /dev/null";
 
                 if($opt{'noop'}) {
