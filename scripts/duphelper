@@ -220,6 +220,9 @@ sub dupback {
     if($opt{'no-print-statistics'}) {
         push(@syscmd,'--no-print-statistics');
     }
+    if($opt{'gpg-options'}) {
+        push(@syscmd,'--gpg-options',$opt{'gpg-options'});
+    }
     if($opt{'ssh-options'}) {
         push(@syscmd,'--ssh-options',$opt{'ssh-options'});
     }
@@ -741,5 +744,5 @@ no-encryption=0
 #encrypt-key=DEADBEEF
 #encrypt-key=BEEFDEAD
 
-# Options passed through to GnuPG
-#gpg-options=--trust-model=always
+# Options passed through to GnuPG for backups
+#gpg-options=--homedir /root/.gnupg --trust-model=always
