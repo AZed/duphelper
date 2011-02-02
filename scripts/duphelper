@@ -269,7 +269,7 @@ sub dupback {
     }
 
     system(@syscmd);
-    exit_system_result($?,@syscmd);
+    exit system_result($?,@syscmd);
 }
 
 
@@ -314,7 +314,7 @@ sub dupclean {
     }
 
     system(@syscmd);
-    exit_system_result($?,@syscmd);
+    exit system_result($?,@syscmd);
 }
 
 
@@ -368,7 +368,7 @@ sub dupcleancount {
     }
 
     system(@syscmd);
-    exit_system_result($?,@syscmd);
+    exit system_result($?,@syscmd);
 }
 
 
@@ -431,7 +431,7 @@ sub dupget {
     }
 
     system(@syscmd);
-    exit_system_result($?,@syscmd);
+    exit system_result($?,@syscmd);
 }
 
 
@@ -471,7 +471,7 @@ sub duplist {
     }
 
     system(@syscmd);
-    exit_system_result($?,@syscmd);
+    exit system_result($?,@syscmd);
 }
 
 
@@ -510,12 +510,19 @@ sub dupstat {
     }
 
     if($opt{'noop'}) {
+        remote_backup_exists(dashpath => $dashpath);
         say "Not executing: ",join(' ',@syscmd);
         exit EXIT_SUCCESS;
     }
 
-    system(@syscmd);
-    exit_system_result($?,@syscmd);
+    if (remote_backup_exists(dashpath => $dashpath)) {
+        system(@syscmd);
+        exit system_result($?,@syscmd);
+    }
+    else {
+        print {*STDERR} "Remote URL has no backups or is unavailable.\n";
+        exit EXIT_SUCCESS;
+    }
 }
 
 
@@ -538,34 +545,103 @@ sub dashpath {
     return $path;
 }
 
-sub exit_system_result {
-    # Parse the result of the duplicity system call and exit appropriately.
-    # Note: THIS ALWAYS EXITS!
 
-    my $retval = shift;
-    my @syscmd = @_;
+sub remote_backup_exists {
+    # Uses an argument hash with the following valid keys and values
+    #  'dashpath'
+    #    => the dashpath used for the remote directory (required)
+    #  'test'
+    #    => 'dir' tests for the presence of the dashpath directory itself
+    #    => 'manifest' tests for the presence of manifest.gpg files in that directory
+    #    The default is 'manifest'.
+    #
+    # Returns 1 if the tested object exists or we don't know how to
+    # test the remote protocol in use.
+    #
+    # Returns 0 if the tested object does not exist.
 
-    if ( ($? >> 8) == 0 )
-    {
-        exit EXIT_SUCCESS;
+    my (%args) = @_;
+
+    my $dashpath = $args{'dashpath'};
+    my $test = $args{'test'} || 'manifest';
+    my $remotedir = "duplicity/" . $opt{'hostname'};
+    my $ymdir;
+    my $regexp;
+
+    if(! $dashpath) {
+        print {*STDERR} "WARNING: remote_backup_exists called with no path specified!\n";
+        print {*STDERR} "(This should be impossible.  Please file a bug report.)\n";
+        return 0;
     }
-    elsif ($? == -1) {
-        print {*STDERR} "Failed to execute: $!\n";
-        print {*STDERR} "System call: ",join(' ',@syscmd);
-        exit EXIT_SYSTEMFAIL;
+
+    given ($opt{'remoteym'}) {
+        break unless $opt{'remoteym'};
+        when (1) { $ymdir = $yearmonth; }
+        when (/\d{6}/) { $ymdir = $opt{'remoteym'}; }
+        default {
+            print {*STDERR} "WARNING: Ignoring invalid remoteym option: "
+                            . $opt{'remoteym'} . "\n";
+        }
     }
-    elsif ($? & 127) {
-        printf {*STDERR} "Child died with signal %d, %s coredump\n",
-          ($? & 127), ($? & 128) ? 'with' : 'without';
-        print {*STDERR} "System call: ",join(' ',@syscmd);
-        exit EXIT_DUPLICITYFAIL;
+    if($ymdir) {
+        $remotedir .= '/' . $ymdir;
     }
-    else {
-        printf {*STDERR} "Child exited with value %d\n", $? >> 8;
-        print {*STDERR} "System call: ",join(' ',@syscmd);
-        exit EXIT_DUPLICITYFAIL;
-   }
+
+    given ($test) {
+        when ('dir') { $regexp = qr/$remotedir\/$dashpath/; }
+        when ('manifest') {
+            $regexp = qr/$remotedir\/$dashpath\/.*\.manifest\.gpg/;
+            $remotedir .= '/' . $dashpath;
+        }
+        default {
+            say {*STDERR} "WARNING: unrecognized backup test type: " . $test;
+            return 0;
+        }
+    }
+
+    my $output;
+    my @lines;
+
+    given ($opt{'remoteproto'}) {
+        when (/^ssh/) {
+            my $cmd = "echo '-ls " . $remotedir . "' | sftp -b - "
+                    . $opt{'ssh-options'} . " "
+                    . $opt{'remoteuser'} . '@' . $opt{'remotehost'}
+                    . " 2> /dev/null";
+
+            if($opt{'noop'}) {
+                say "Not executing: $cmd";
+            }
+            else {
+                $output = `$cmd`;
+                system_result($?,$cmd);
+
+                @lines = split(/^/,$output);
+
+                if ($#lines == -1) {
+                    print {*STDERR} "WARNING: failed to list remote parent directory!\n";
+                    return 0;
+                }
+                if ($#lines == 0) {
+                    # Remote parent directory is empty or nonexistent
+                    # sftp returned exactly one line listing the command executed
+                    return 0;
+                }
+                if (@lines ~~ /$regexp/) {
+                    return 1;
+                }
+            }
+        }
+        default {
+            print {*STDERR} "WARNING: unable to examine remote directories with protocol "
+                            . $opt{'remoteproto'} . "\n";
+            print {*STDERR} "WARNING: proceeding as if it exists anyway.\n";
+            return 1;
+        }
+    }
+    return 0;
 }
+
 
 sub remote_create_dir {
     # Create the destination directory if it does not yet exist
@@ -582,7 +658,10 @@ sub remote_create_dir {
             if($opt{'noop'}) {
                 say "Not executing: $cmd";
             }
-            else { system($cmd); }
+            else {
+                system($cmd);
+                system_result($?,$cmd);
+            }
 
             # An additional directory level needs to be created when
             # remoteym is in use
@@ -605,7 +684,10 @@ sub remote_create_dir {
                 if($opt{'noop'}) {
                     say "Not executing: $cmd";
                 }
-                else { system($cmd); }
+                else {
+                    system($cmd);
+                    system_result($?,$cmd);
+                }
             }
         }
         default {
@@ -613,6 +695,7 @@ sub remote_create_dir {
         }
     }
 }
+
 
 sub remoteurl {
     # Generate a full remote URL string from the option data and a
@@ -668,6 +751,37 @@ sub remoteurl {
 
     $remoteurl .= '/' . $dashpath;
     return $remoteurl;
+}
+
+
+sub system_result {
+    # Parse the result of a system call
+    # Returns 0 if it was a success
+    # EXITS WITH AN ERROR if not!
+
+    my $retval = shift;
+    my @syscmd = @_;
+
+    if ( ($? >> 8) == 0 )
+    {
+        return 0;
+    }
+    elsif ($? == -1) {
+        print {*STDERR} "Failed to execute: $!\n";
+        print {*STDERR} "System call: ",join(' ',@syscmd);
+        exit EXIT_SYSTEMFAIL;
+    }
+    elsif ($? & 127) {
+        printf {*STDERR} "Child died with signal %d, %s coredump\n",
+          ($? & 127), ($? & 128) ? 'with' : 'without';
+        print {*STDERR} "System call: ",join(' ',@syscmd);
+        exit EXIT_SYSTEMFAIL;
+    }
+    else {
+        printf {*STDERR} "Child exited with value %d\n", $? >> 8;
+        print {*STDERR} "System call: ",join(' ',@syscmd);
+        exit EXIT_SYSTEMFAIL;
+   }
 }
 
 
