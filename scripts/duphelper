@@ -68,6 +68,7 @@ my %opt = (
     'exclude-device-files' => $config->val('duplicity','exclude-device-files') || 0,
     'exclude-other-filesystems' => $config->val('duplicity','exclude-other-filesystems') || 0,
     'file-to-restore'	=> undef,
+    'full'		=> undef,
     'fullinterval'	=> $config->val('duphelper','fullinterval') || '1M',
     'gpg-options'	=> $config->val('encryption','gpg-options') || '',
     'home'		=> $config->val('duphelper','home') || undef,
@@ -98,6 +99,7 @@ GetOptions(
     'exclude=s@',
     'exclude-device-files',
     'file-to-restore=s',
+    'full',
     'fullinterval=s',
     'gpg-options=s',
     'home=s',
@@ -121,6 +123,11 @@ GetOptions(
 
 if($opt{'archive-dir-hostname'}) {
     $opt{'archive-dir'} = $opt{'archive-dir'} . '/' . $opt{'hostname'};
+}
+
+# --full is shorthand for --fullinterval now
+if($opt{'full'}) {
+    $opt{'fullinterval'} = 'now';
 }
 
 # Current year and month as a 6-digit string, used when remoteym is
@@ -189,7 +196,7 @@ Back up a specified path
 
 =head4 Force a full (non-incremental) backup
 
- dupback / now
+ dupback / --full
 
 =cut
 
