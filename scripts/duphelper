@@ -314,6 +314,7 @@ sub dupclean {
     if($opt{'ssh-options'}) {
         push(@syscmd,'--ssh-options',$opt{'ssh-options'});
     }
+    push(@syscmd,$remoteurl);
 
     if($opt{'noop'}) {
         say "Not executing: ",join(' ',@syscmd);
