@@ -1,6 +1,5 @@
 #!/usr/bin/perl
 use warnings; use strict;
-use 5.010;
 
 =head1 NAME
 
@@ -149,27 +148,27 @@ my %dispatch = (
    );
 
 my $command = basename($0);
-given ($command) {
-    when (defined $dispatch{$_}) { $dispatch{$command}(@ARGV); }
-    default {
-        $command = shift;
-        given ($command) {
-            when (undef) {
-                print {*STDERR} "I don't know what to do!\n";
-                print {*STDERR} "I was invoked as: $0 (with no arguments)\n";
-                print {*STDERR} "(I expected to be invoked either with the name of a valid command,\nor with a valid command as my first argument.)\n";
-                print {*STDERR} "Valid commands are: ",join(' ',sort keys %dispatch),"\n";
-                exit EXIT_BADCOMMAND;
-            }
-            when (defined $dispatch{$_}) { $dispatch{$command}(@ARGV); }
-            default {
-                print {*STDERR} "I don't know what to do!\n";
-                print {*STDERR} "I was invoked as: $0 $command\n";
-                print {*STDERR} "(I expected to be invoked either with the name of a valid command,\nor with a valid command as my first argument.)\n";
-                print {*STDERR} "Valid commands are: ",join(' ',sort keys %dispatch),"\n";
-                exit EXIT_BADCOMMAND;
-            }
-        }
+if (defined $dispatch{$command}) {
+    $dispatch{$command}(@ARGV);
+}
+else {
+    $command = shift;
+    if (!$command) {
+        print {*STDERR} "I don't know what to do!\n";
+        print {*STDERR} "I was invoked as: $0 (with no arguments)\n";
+        print {*STDERR} "(I expected to be invoked either with the name of a valid command,\nor with a valid command as my first argument.)\n";
+        print {*STDERR} "Valid commands are: ",join(' ',sort keys %dispatch),"\n";
+        exit EXIT_BADCOMMAND;
+    }
+    if (defined $dispatch{$command}) {
+        $dispatch{$command}(@ARGV);
+    }
+    else {
+        print {*STDERR} "I don't know what to do!\n";
+        print {*STDERR} "I was invoked as: $0 $command\n";
+        print {*STDERR} "(I expected to be invoked either with the name of a valid command,\nor with a valid command as my first argument.)\n";
+        print {*STDERR} "Valid commands are: ",join(' ',sort keys %dispatch),"\n";
+        exit EXIT_BADCOMMAND;
     }
 }
 
@@ -271,7 +270,7 @@ sub dupback {
     remote_create_dir($opt{'remoteproto'});
 
     if($opt{'noop'}) {
-        say "Not executing: ",join(' ',@syscmd);
+        print "Not executing: ",join(' ',@syscmd),"\n";
         exit EXIT_SUCCESS;
     }
 
@@ -317,7 +316,7 @@ sub dupclean {
     push(@syscmd,$remoteurl);
 
     if($opt{'noop'}) {
-        say "Not executing: ",join(' ',@syscmd);
+        print "Not executing: ",join(' ',@syscmd),"\n";
         exit EXIT_SUCCESS;
     }
 
@@ -371,7 +370,7 @@ sub dupcleancount {
     push(@syscmd,$remoteurl);
 
     if($opt{'noop'}) {
-        say "Not executing: ",join(' ',@syscmd);
+        print "Not executing: ",join(' ',@syscmd),"\n";
         exit EXIT_SUCCESS;
     }
 
@@ -434,7 +433,7 @@ sub dupget {
     push(@syscmd,$localpath);
 
     if($opt{'noop'}) {
-        say "Not executing: ",join(' ',@syscmd);
+        print "Not executing: ",join(' ',@syscmd),"\n";
         exit EXIT_SUCCESS;
     }
 
@@ -474,7 +473,7 @@ sub duplist {
     }
 
     if($opt{'noop'}) {
-        say "Not executing: ",join(' ',@syscmd);
+        print "Not executing: ",join(' ',@syscmd),"\n";
         exit EXIT_SUCCESS;
     }
 
@@ -519,7 +518,7 @@ sub dupstat {
 
     if($opt{'noop'}) {
         remote_backup_exists(dashpath => $dashpath);
-        say "Not executing: ",join(' ',@syscmd);
+        print "Not executing: ",join(' ',@syscmd),"\n";
         exit EXIT_SUCCESS;
     }
 
@@ -554,6 +553,33 @@ sub dashpath {
 }
 
 
+sub get_ymdir {
+    # Determines whether or not a remote year-month directory
+    # component is in use (as specified in the options or config
+    # file), calculates it if required, and returns the appropriate
+    # string to be used in the full path specification.
+    #
+    # Returns undef if the directory is not to be used or an invalid
+    # (non-6-digit-numeric) value is specified.
+
+    my $ymdir;
+
+    if ($opt{'remoteym'}) {
+        if ($opt{'remoteym'} == 1) {
+            $ymdir = $yearmonth;
+        }
+        elsif ($opt{'remoteym'} =~ /\d{6}/) {
+            $ymdir = $opt{'remoteym'};
+        }
+        else {
+            print {*STDERR} "WARNING: Ignoring invalid remoteym option: "
+                            . $opt{'remoteym'} . "\n";
+        }
+    }
+
+    return $ymdir;
+}
+
 sub remote_backup_exists {
     # Uses an argument hash with the following valid keys and values
     #  'dashpath'
@@ -576,76 +602,66 @@ sub remote_backup_exists {
     my $ymdir;
     my $regexp;
 
-    if(! $dashpath) {
+    if (! $dashpath) {
         print {*STDERR} "WARNING: remote_backup_exists called with no path specified!\n";
         print {*STDERR} "(This should be impossible.  Please file a bug report.)\n";
         return 0;
     }
 
-    given ($opt{'remoteym'}) {
-        break unless $opt{'remoteym'};
-        when (1) { $ymdir = $yearmonth; }
-        when (/\d{6}/) { $ymdir = $opt{'remoteym'}; }
-        default {
-            print {*STDERR} "WARNING: Ignoring invalid remoteym option: "
-                            . $opt{'remoteym'} . "\n";
-        }
-    }
+    $ymdir = get_ymdir();
     if($ymdir) {
         $remotedir .= '/' . $ymdir;
     }
 
-    given ($test) {
-        when ('dir') { $regexp = qr/$remotedir\/$dashpath/; }
-        when ('manifest') {
-            $regexp = qr/$remotedir\/$dashpath\/.*\.manifest\.gpg/;
-            $remotedir .= '/' . $dashpath;
-        }
-        default {
-            say {*STDERR} "WARNING: unrecognized backup test type: " . $test;
-            return 0;
-        }
+    if ($test eq 'dir') {
+        $regexp = qr/$remotedir\/$dashpath/;
+    }
+    elsif ($test eq 'manifest') {
+        $regexp = qr/$remotedir\/$dashpath\/.*\.manifest\.gpg/;
+        $remotedir .= '/' . $dashpath;
+    }
+    else {
+        print {*STDERR} "WARNING: unrecognized backup test type: " . $test . "\n";
+        return 0;
     }
 
     my $output;
     my @lines;
 
-    given ($opt{'remoteproto'}) {
-        when (/^ssh/) {
-            my $cmd = "echo '-ls " . $remotedir . "' | sftp -b - "
-                    . $opt{'ssh-options'} . " "
-                    . $opt{'remoteuser'} . '@' . $opt{'remotehost'}
-                    . " 2> /dev/null";
+    if ($opt{'remoteproto'} =~ /^ssh/) {
+        my $cmd = "echo '-ls " . $remotedir . "' | sftp -b - "
+                  . $opt{'ssh-options'} . " "
+                  . $opt{'remoteuser'} . '@' . $opt{'remotehost'}
+                  . " 2> /dev/null";
 
-            if($opt{'noop'}) {
-                say "Not executing: $cmd";
+        if($opt{'noop'}) {
+            print "Not executing: $cmd\n";
+        }
+        else {
+            $output = `$cmd`;
+            system_result($?,$cmd);
+
+            @lines = split(/^/,$output);
+
+            if ($#lines == -1) {
+                print {*STDERR} "WARNING: failed to list remote parent directory!\n";
+                return 0;
             }
-            else {
-                $output = `$cmd`;
-                system_result($?,$cmd);
-
-                @lines = split(/^/,$output);
-
-                if ($#lines == -1) {
-                    print {*STDERR} "WARNING: failed to list remote parent directory!\n";
-                    return 0;
-                }
-                if ($#lines == 0) {
-                    # Remote parent directory is empty or nonexistent
-                    # sftp returned exactly one line listing the command executed
-                    return 0;
-                }
-                if (@lines ~~ /$regexp/) {
-                    return 1;
-                }
+            if ($#lines == 0) {
+                # Remote parent directory is empty or nonexistent
+                # sftp returned exactly one line listing the command executed
+                return 0;
+            }
+            if (grep(/$regexp/,@lines)) {
+                return 1;
             }
         }
-        default {
-            print {*STDERR} "WARNING: unable to examine remote directories with protocol "
-                            . $opt{'remoteproto'} . "\n";
-            print {*STDERR} "WARNING: proceeding as if it exists anyway.\n";
-            return 1;
-        }
+    }
+    else {
+        print {*STDERR} "WARNING: unable to examine remote directories with protocol "
+                        . $opt{'remoteproto'} . "\n";
+        print {*STDERR} "WARNING: proceeding as if it exists anyway.\n";
+        return 1;
     }
     return 0;
 }
@@ -655,52 +671,42 @@ sub remote_create_dir {
     # Create the destination directory if it does not yet exist
 
     my $proto = shift;
+    my $ymdir;
 
-    given ($proto) {
-        when (/^ssh/) {
-            my $cmd = "echo '-mkdir duplicity/" . $opt{'hostname'}
-                    . "' | sftp -b - " . $opt{'ssh-options'} . " "
-                    . $opt{'remoteuser'} . '@' . $opt{'remotehost'}
-                    . " 2> /dev/null > /dev/null";
+    if ($proto =~ /^ssh/ ) {
+        my $cmd = "echo '-mkdir duplicity/" . $opt{'hostname'}
+          . "' | sftp -b - " . $opt{'ssh-options'} . " "
+            . $opt{'remoteuser'} . '@' . $opt{'remotehost'}
+              . " 2> /dev/null > /dev/null";
+
+        if($opt{'noop'}) {
+            print "Not executing: $cmd\n";
+        }
+        else {
+            system($cmd);
+            system_result($?,$cmd);
+        }
+
+        # An additional directory level needs to be created when
+        # remoteym is in use
+        $ymdir = get_ymdir();
+        if($ymdir) {
+            $cmd = "echo '-mkdir duplicity/" . $opt{'hostname'}
+                   . '/' . $ymdir . "' | sftp -b - " . $opt{'ssh-options'}
+                   . " " . $opt{'remoteuser'} . '@' . $opt{'remotehost'}
+                   . " 2> /dev/null > /dev/null";
 
             if($opt{'noop'}) {
-                say "Not executing: $cmd";
+                print "Not executing: $cmd\n";
             }
             else {
                 system($cmd);
                 system_result($?,$cmd);
             }
-
-            # An additional directory level needs to be created when
-            # remoteym is in use
-            my $ymdir;
-            given ($opt{'remoteym'}) {
-                break unless $opt{'remoteym'};
-                when (1) { $ymdir = $yearmonth; }
-                when (/\d{6}/) { $ymdir = $opt{'remoteym'}; }
-                default {
-                    print {*STDERR} "WARNING: Ignoring invalid remoteym option: "
-                                    . $opt{'remoteym'} . "\n";
-                }
-            }
-            if($ymdir) {
-                $cmd = "echo '-mkdir duplicity/" . $opt{'hostname'}
-                    . '/' . $ymdir . "' | sftp -b - " . $opt{'ssh-options'}
-                    . " " . $opt{'remoteuser'} . '@' . $opt{'remotehost'}
-                    . " 2> /dev/null > /dev/null";
-
-                if($opt{'noop'}) {
-                    say "Not executing: $cmd";
-                }
-                else {
-                    system($cmd);
-                    system_result($?,$cmd);
-                }
-            }
         }
-        default {
-            print {*STDERR} "WARNING: unable to pre-create remote directory with protocol $proto\n";
-        }
+    }
+    else {
+        print {*STDERR} "WARNING: unable to pre-create remote directory with protocol $proto\n";
     }
 }
 
@@ -747,15 +753,8 @@ sub remoteurl {
       . $opt{'remoteuser'} . '@' . $opt{'remotehost'} . $opt{'remotedir'}
       . '/' . $opt{'hostname'};
 
-    given ($opt{'remoteym'}) {
-        break unless $opt{'remoteym'};
-        when (1) { $remoteurl .= '/' . $yearmonth; }
-        when (/\d{6}/) { $remoteurl .= '/' . $opt{'remoteym'}; }
-        default {
-            print {*STDERR} "WARNING: Ignoring invalid remoteym option: "
-                            . $opt{'remoteym'} . "\n";
-        }
-    }
+    my $ymdir = get_ymdir();
+    if ($ymdir) { $remoteurl .= '/' . $ymdir; }
 
     $remoteurl .= '/' . $dashpath;
     return $remoteurl;
