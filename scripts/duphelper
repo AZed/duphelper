@@ -232,6 +232,11 @@ sub dupback {
     if($opt{'ssh-options'}) {
         push(@syscmd,'--ssh-options',$opt{'ssh-options'});
     }
+    if($opt{'exclude'}) {
+        foreach my $excluded (@{$opt{'exclude'}}) {
+            push(@syscmd,'--exclude',$excluded);
+        }
+    }
     if($opt{'exclude-device-files'}) {
         push(@syscmd,'--exclude-device-files');
     }
