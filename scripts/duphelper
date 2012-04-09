@@ -15,6 +15,7 @@ See also Usage and Examples in the documentation for each COMMAND, below.
 
 use Config::IniFiles;
 use File::Basename;
+use File::Path qw(make_path);
 use Getopt::Long;
 use Sys::Hostname;
 use Time::localtime;
@@ -123,6 +124,7 @@ GetOptions(
 if($opt{'archive-dir-hostname'}) {
     $opt{'archive-dir'} = $opt{'archive-dir'} . '/' . $opt{'hostname'};
 }
+make_path($opt{'archive-dir'});
 
 # --full is shorthand for --fullinterval now
 if($opt{'full'}) {
