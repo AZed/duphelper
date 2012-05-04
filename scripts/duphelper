@@ -79,6 +79,7 @@ my %opt = (
     'noop'		=> 0,
     'remotedir'		=> $config->val('duphelper','remotedir') || undef,
     'remotehost'	=> $config->val('duphelper','remotehost') || undef,
+    'remoteport'	=> $config->val('duphelper','remoteport') || undef,
     'remoteproto'	=> $config->val('duphelper','remoteproto') || undef,
     'remoteuser'	=> $config->val('duphelper','remoteuser') || undef,
     'remoteym'		=> $config->val('duphelper','remoteym') || 0,
@@ -110,6 +111,7 @@ GetOptions(
     'no-print-statistics',
     'remotedir=s',
     'remotehost=s',
+    'remoteport=s',
     'remoteproto=s',
     'remoteuser=s',
     'remoteym=s',
@@ -125,6 +127,11 @@ if($opt{'archive-dir-hostname'}) {
     $opt{'archive-dir'} = $opt{'archive-dir'} . '/' . $opt{'hostname'};
 }
 make_path($opt{'archive-dir'});
+
+# if remoteport is defined, we need to add it to ssh-options
+if($opt{'remoteport'}) {
+    $opt{'ssh-options'} = "-oPort=$opt{'remoteport'} " . $opt{'ssh-options'};
+}
 
 # --full is shorthand for --fullinterval now
 if($opt{'full'}) {
@@ -635,7 +642,7 @@ sub remote_backup_exists {
     my $output;
     my @lines;
 
-    if ($opt{'remoteproto'} =~ /^ssh/) {
+    if ($opt{'remoteproto'} =~ /^(sftp|scp|ssh)/) {
         my $cmd = "echo '-ls " . $remotedir . "' | sftp -b - "
                   . $opt{'ssh-options'} . " "
                   . $opt{'remoteuser'} . '@' . $opt{'remotehost'}
@@ -680,11 +687,11 @@ sub remote_create_dir {
     my $proto = shift;
     my $ymdir;
 
-    if ($proto =~ /^ssh/ ) {
+    if ($proto =~ /^(sftp|scp|ssh)/ ) {
         my $cmd = "echo '-mkdir duplicity/" . $opt{'hostname'}
           . "' | sftp -b - " . $opt{'ssh-options'} . " "
-            . $opt{'remoteuser'} . '@' . $opt{'remotehost'}
-              . " 2> /dev/null > /dev/null";
+          . $opt{'remoteuser'} . '@' . $opt{'remotehost'}
+          . " 2> /dev/null";
 
         if($opt{'noop'}) {
             print "Not executing: $cmd\n";
@@ -701,7 +708,7 @@ sub remote_create_dir {
             $cmd = "echo '-mkdir duplicity/" . $opt{'hostname'}
                    . '/' . $ymdir . "' | sftp -b - " . $opt{'ssh-options'}
                    . " " . $opt{'remoteuser'} . '@' . $opt{'remotehost'}
-                   . " 2> /dev/null > /dev/null";
+                   . " 2> /dev/null";
 
             if($opt{'noop'}) {
                 print "Not executing: $cmd\n";
@@ -757,8 +764,11 @@ sub remoteurl {
 
     my $remoteurl =
       $opt{'remoteproto'} . '://'
-      . $opt{'remoteuser'} . '@' . $opt{'remotehost'} . $opt{'remotedir'}
-      . '/' . $opt{'hostname'};
+      . $opt{'remoteuser'} . '@' . $opt{'remotehost'};
+    if($opt{'remoteport'}) {
+        $remoteurl .= ":" . $opt{'remoteport'};
+    }
+    $remoteurl .= $opt{'remotedir'} . '/' . $opt{'hostname'};
 
     my $ymdir = get_ymdir();
     if ($ymdir) { $remoteurl .= '/' . $ymdir; }
@@ -829,12 +839,16 @@ fullinterval=1M
 # Don't do this unless you know what you are doing
 # hostname=myhostname
 
-# Remote protocol, user, host, and backup path
+# Remote protocol, user, host, port, and backup path
 # This will be used to generate the remote URL in the format:
-# {remoteproto}://{remoteuser}@{remotehost}{remotedir}
+# {remoteproto}://{remoteuser}@{remotehost}:{remoteport}{remotedir}
+# The colon and {remoteport} will be skipped if remoteport is not given
+# If remoteport is given, it will also automatically be added to
+# ssh-options, below, and should not be specified there.
 #remoteproto=ssh
 #remoteuser=backup
 #remotehost=mybackuphost
+#remoteport=
 #remotedir=/duplicity
 
 # Append a YYYYMM directory to the remote path after the hostname
@@ -859,7 +873,7 @@ exclude-device-files=1
 exclude-other-filesystems=0
 log-file=/var/log/duplicity.log
 no-print-statistics=1
-#ssh-options=-oPort=2226 -oIdentityFile=/usr/local/share/misc/backup-key
+#ssh-options=-oIdentityFile=/usr/local/share/misc/backup-key
 verbosity=1
 volsize=25
 
