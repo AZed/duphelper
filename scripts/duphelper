@@ -399,7 +399,7 @@ Retrieve files/directories from a Duplicity archive
 
 =head3 Usage
 
- dupget /archive/path [outputname] [file-to-restore]
+ dupget /archive/path [output-name] [dir-or-file-to-restore]
 
 The default is to retrieve the entire backup archive into the current
 directory, which must be empty.
