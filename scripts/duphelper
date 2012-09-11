@@ -401,14 +401,29 @@ Retrieve files/directories from a Duplicity archive
 
  dupget /archive/path [output-name] [dir-or-file-to-restore]
 
+[output-name] may be a relative or absolute path, but if specified it
+must not yet exist.
+
+[dir-or-file-to-restore] should always be a relative path (i.e. no
+leading slash).
+
 The default is to retrieve the entire backup archive into the current
 directory, which must be empty.
 
 =head3 Examples
 
+From a backup of the entire filesystem, retrieve the backup of
+/usr/local/bin as /opt/local/bin:
+
  dupget / /opt/local/bin usr/local/bin
 
+From a backup of /usr/local, retrieve the backup of /usr/local/bin and
+write it as /opt/local/bin:
+
  dupget /usr/local /opt/local/bin bin
+
+From a backup of the entire filesystem on a server named "otherhost",
+retrieve the backup of /home as /home:
 
  dupget -h otherhost / /home home
 
