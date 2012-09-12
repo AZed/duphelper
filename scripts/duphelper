@@ -473,7 +473,9 @@ sub dupget {
 
 =head2 C<duplist>
 
-List all files contained within the most recent backup chain
+List all files contained within the backup chain.
+
+If --time is not specified, uses the most recent backup chain.
 
 =head3 Usage
 
@@ -499,6 +501,9 @@ sub duplist {
     }
     if($opt{'ssh-options'}) {
         push(@syscmd,'--ssh-options',$opt{'ssh-options'});
+    }
+    if($opt{'time'}) {
+        push(@syscmd,'--time',$opt{'time'});
     }
 
     if($opt{'noop'}) {
