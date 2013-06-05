@@ -53,6 +53,170 @@ $config = Config::IniFiles->new() unless($config);
 ########## OPTION HANDLING ##########
 #####################################
 
+=head1 OPTIONS
+
+=head2 Duphelper Options
+
+The following options either affect behavior particular to Duphelper
+itself or have special handling applied before being passed to
+Duplicity.  They override values found in the configuration file, if
+any.
+
+=over
+
+=item --archive-dir-hostname
+
+If this is set to true, the base Duplicity archive-dir will always
+have the hostname appended as a path component.
+
+=item --cleancount
+
+The number of backups to keep when purging backups with dupcleancount
+
+=item --cleaninterval
+
+Default: '1Y'
+
+The time after which old backups are purged by dupclean
+
+=item --encrypt-key
+
+Encrypt the backup to this GPG key.  This option can be specified
+multiple times to allow a backup to be decrypted by multiple keys.
+
+=item --full
+
+Forces a full backup by setting fullinterval to 'now', discarding any
+value specified by --fullinterval.
+
+=item --fullinterval
+
+Default: '1M'
+
+This is the time after which a full backup is forced.  If set to
+'now', a full backup will always be performed.
+
+=item --home
+
+This will set the environment variable HOME before the duplicity call,
+e.g. to force root's .gnupg directory to be used.
+
+=item --hostname | -h
+
+This overrides the default detected hostname.  This is sometimes
+useful when restoring a file from the backup of a completely different
+machine, but should only be used with caution.
+
+=item --noop
+
+Print out the duplicity command that would be executed without
+actually running it.
+
+=item --remotedir
+
+=item --remotehost
+
+=item --remoteport
+
+=item --remoteproto
+
+=item --remoteuser
+
+Remote protocol, user, host, port, and backup path
+
+This will be used to generate the remote URL in the format:
+
+{remoteproto}://{remoteuser}@{remotehost}:{remoteport}{remotedir}
+
+The colon and {remoteport} will be skipped if remoteport is not given
+If remoteport is given, it will also automatically be added to
+ssh-options, below, and should not be specified there.
+
+=item --remoteym
+
+Append a YYYYMM directory to the remote path after the hostname
+(this is to put a limit on the local cache when many backups are kept)
+
+If 0 (or undefined), does not append anything (uses just the hostname)
+
+If 1, uses the current year and month
+
+If a six-digit numeric value is provided, uses that
+
+If anything else, a warning is displayed and just the hostname is used
+
+=item --rootexclude
+
+This specifies a file or directory to be excluded specifically from
+backups of '/'.  If a target other than '/' is in use, these values
+will not apply.
+
+This option can be specified multiple times to exclude multiple files
+or directories.
+
+=back
+
+=head2 Duplicity Options
+
+The following options are passed verbatim to Duplicity as appropriate.
+For more details on what they do, see the duplicity documentation.
+
+=over
+
+=item --archive-dir
+
+=item --dry-run
+
+=item --exclude-device-files
+
+=item --exclude-filelist
+
+Default: '/etc/duplicity/exclude'
+
+This specifies a global exclusion list that will be applied to all
+dupback calls.  As full pathnames starting from the filesystem root
+are required, and backups starting at different paths will abort with
+an error if they find an exclude that isn't in their path, this is
+only useful if you are only making a single backup or if you are
+making backups with overlapping paths.  Normally, you want to use the
+globbing version, below.
+
+=item --exclude-globbing-filelist
+
+Default: '/etc/duplicity/exclude.glob'
+
+This specifies a global exclusion list that will be applied to all
+dupback calls, with glob parsing applied.  A common use for this is to
+declare particular files or directories that will always be ignored in
+all backups, such as:
+
+ **/nobackup
+ **/private
+
+=item --exclude-other-filesystems
+
+=item --gpg-options
+
+=item --log-file
+
+=item --no-encryption
+
+=item --no-print-statistics
+
+=item --ssh-options
+
+=item --tempdir
+
+=item --time
+
+=item --verbosity
+
+=item --volsize
+
+=back
+
+=cut
+
 # Array option pre-handling
 my @config_encryptkeys = $config->val('encryption','encrypt-key');
 my @config_rootexclude = $config->val('duphelper','rootexclude');
