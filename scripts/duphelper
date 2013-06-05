@@ -235,9 +235,6 @@ sub dupback {
     if($opt{'no-print-statistics'}) {
         push(@syscmd,'--no-print-statistics');
     }
-    if($opt{'gpg-options'}) {
-        push(@syscmd,'--gpg-options',$opt{'gpg-options'});
-    }
     if($opt{'ssh-options'}) {
         push(@syscmd,'--ssh-options',$opt{'ssh-options'});
     }
