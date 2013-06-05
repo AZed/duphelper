@@ -252,7 +252,6 @@ my %opt = (
     'ssh-options'	=> $config->val('duplicity','ssh-options') || '',
     'tempdir'		=> $config->val('duplicity','tempdir') || undef,
     'time'		=> undef,
-    'urlbase'		=> $config->val('duphelper','urlbase') || undef,
     'verbosity'		=> $config->val('duplicity','verbosity') || 4,
     'volsize'		=> $config->val('duplicity','volsize') || 25,
    );
@@ -286,7 +285,6 @@ GetOptions(
     'ssh-options=s',
     'tempdir=s',
     'time|restore-time|t=s',
-    'urlbase=s',
     'verbosity|v=s',
     'volsize=i',
    );
