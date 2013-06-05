@@ -474,6 +474,13 @@ sub dupback {
 
 Remove all backups older than the 'cleaninterval' time.
 
+Also runs 'duplicity cleanup' to delete extraneous duplicity files
+left over from aborted or failed backups.
+
+It is possible for this command to leave you without any backups if
+all of your backups are old.  For a safer alternative, use
+dupcleancount.
+
 =head3 Usage
 
  dupclean <path>
@@ -511,11 +518,35 @@ sub dupclean {
 
     if($opt{'noop'}) {
         print "Not executing: ",join(' ',@syscmd),"\n";
-        exit EXIT_SUCCESS;
+    }
+    else {
+        system(@syscmd);
+        system_result($?,@syscmd);
     }
 
-    system(@syscmd);
-    exit system_result($?,@syscmd);
+    @syscmd = (
+        'duplicity','cleanup','--extra-clean','--force',
+        '--verbosity',$opt{'verbosity'},
+       );
+    if($opt{'dry-run'}) {
+        push(@syscmd,'--dry-run');
+    }
+    if($opt{'ssh-options'}) {
+        push(@syscmd,'--ssh-options',$opt{'ssh-options'});
+    }
+    if($opt{'tempdir'}) {
+        push(@syscmd,'--tempdir',$opt{'tempdir'});
+    }
+    push(@syscmd,$remoteurl);
+
+    if($opt{'noop'}) {
+        print "Not executing: ",join(' ',@syscmd),"\n";
+        exit EXIT_SUCCESS;
+    }
+    else {
+        system(@syscmd);
+        exit system_result($?,@syscmd);
+    }
 }
 
 
