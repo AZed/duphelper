@@ -66,6 +66,8 @@ my %opt = (
     'dry-run'		=> undef,
     'encrypt-key'	=> \@config_encryptkeys || undef,
     'exclude-device-files' => $config->val('duplicity','exclude-device-files') || 0,
+    'exclude-filelist'  => $config->val('duplicity','exclude-filelist') || '/etc/duplicity/exclude',
+    'exclude-globbing-filelist' => $config->val('duplicity','exclude-globbing-filelist') || '/etc/duplicity/exclude.glob',
     'exclude-other-filesystems' => $config->val('duplicity','exclude-other-filesystems') || 0,
     'file-to-restore'	=> undef,
     'full'		=> undef,
@@ -99,6 +101,8 @@ GetOptions(
     'dry-run',
     'exclude=s@',
     'exclude-device-files',
+    'exclude-filelist=s',
+    'exclude-globbing-filelist=s',
     'file-to-restore=s',
     'full',
     'fullinterval=s',
@@ -245,6 +249,17 @@ sub dupback {
     }
     if($opt{'exclude-device-files'}) {
         push(@syscmd,'--exclude-device-files');
+    }
+    if($opt{'exclude-filelist'}) {
+        if(-f $opt{'exclude-filelist'}) {
+            push(@syscmd,'--exclude-filelist',$opt{'exclude-filelist'});
+        }
+    }
+    if($opt{'exclude-globbing-filelist'}) {
+        if(-f $opt{'exclude-globbing-filelist'}) {
+            push(@syscmd,'--exclude-globbing-filelist',
+                 $opt{'exclude-globbing-filelist'});
+        }
     }
     if($opt{'log-file'}) {
         push(@syscmd,'--log-file',$opt{'log-file'});
@@ -887,10 +902,12 @@ rootexclude=/var/cache/duplicity
 [duplicity]
 archive-dir=/var/cache/duplicity
 exclude-device-files=1
+exclude-filelist=/etc/duplicity/exclude
+exclude-globbing-filelist=/etc/duplicity/exclude.glob
 exclude-other-filesystems=0
 log-file=/var/log/duplicity.log
 no-print-statistics=1
-#ssh-options=-oIdentityFile=/usr/local/share/misc/backup-key
+#ssh-options=-oIdentityFile=/root/.ssh/id_rsa-backup
 verbosity=1
 volsize=25
 
