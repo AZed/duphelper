@@ -951,7 +951,7 @@ sub remote_create_dir {
             $cmd = "echo '-mkdir duplicity/" . $opt{'hostname'}
                    . '/' . $ymdir . "' | sftp -b - " . $opt{'ssh-options'}
                    . " " . $opt{'remoteuser'} . '@' . $opt{'remotehost'}
-                   . " 2> /dev/null";
+                   . " >/dev/null 2>&1";
 
             if($opt{'noop'}) {
                 print "Not executing: $cmd\n";
