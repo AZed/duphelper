@@ -561,7 +561,7 @@ Remove all backups except the last 'cleancount' backups.
 If <path> is not specified, defaults to '/'
 
 Also, <path> must be specified to use <count> as an argument (though
-the count can also be specified with --cleanount)
+the count can also be specified with --cleancount)
 
 =cut
 
