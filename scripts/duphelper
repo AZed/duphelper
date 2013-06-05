@@ -87,6 +87,7 @@ my %opt = (
     'remoteym'		=> $config->val('duphelper','remoteym') || 0,
     'rootexclude'	=> \@config_rootexclude || undef,
     'ssh-options'	=> $config->val('duplicity','ssh-options') || '',
+    'tempdir'		=> $config->val('duplicity','tempdir') || undef,
     'time'		=> undef,
     'urlbase'		=> $config->val('duphelper','urlbase') || undef,
     'verbosity'		=> $config->val('duplicity','verbosity') || 4,
@@ -121,6 +122,7 @@ GetOptions(
     'remoteym=s',
     'rootexclude=s@',
     'ssh-options=s',
+    'tempdir=s',
     'time|restore-time|t=s',
     'urlbase=s',
     'verbosity|v=s',
@@ -236,12 +238,6 @@ sub dupback {
     if($opt{'fullinterval'}) {
         push(@syscmd,'--full-if-older-than',$opt{'fullinterval'});
     }
-    if($opt{'no-print-statistics'}) {
-        push(@syscmd,'--no-print-statistics');
-    }
-    if($opt{'ssh-options'}) {
-        push(@syscmd,'--ssh-options',$opt{'ssh-options'});
-    }
     if($opt{'exclude'}) {
         foreach my $excluded (@{$opt{'exclude'}}) {
             push(@syscmd,'--exclude',$excluded);
@@ -263,6 +259,15 @@ sub dupback {
     }
     if($opt{'log-file'}) {
         push(@syscmd,'--log-file',$opt{'log-file'});
+    }
+    if($opt{'no-print-statistics'}) {
+        push(@syscmd,'--no-print-statistics');
+    }
+    if($opt{'ssh-options'}) {
+        push(@syscmd,'--ssh-options',$opt{'ssh-options'});
+    }
+    if($opt{'tempdir'}) {
+        push(@syscmd,'--tempdir',$opt{'tempdir'});
     }
 
     # Root exclusions
@@ -339,6 +344,9 @@ sub dupclean {
     if($opt{'ssh-options'}) {
         push(@syscmd,'--ssh-options',$opt{'ssh-options'});
     }
+    if($opt{'tempdir'}) {
+        push(@syscmd,'--tempdir',$opt{'tempdir'});
+    }
     push(@syscmd,$remoteurl);
 
     if($opt{'noop'}) {
@@ -392,6 +400,9 @@ sub dupcleancount {
     }
     if($opt{'ssh-options'}) {
         push(@syscmd,'--ssh-options',$opt{'ssh-options'});
+    }
+    if($opt{'tempdir'}) {
+        push(@syscmd,'--tempdir',$opt{'tempdir'});
     }
     push(@syscmd,$remoteurl);
 
@@ -465,6 +476,9 @@ sub dupget {
     if($opt{'ssh-options'}) {
         push(@syscmd,'--ssh-options',$opt{'ssh-options'});
     }
+    if($opt{'tempdir'}) {
+        push(@syscmd,'--tempdir',$opt{'tempdir'});
+    }
     if($opt{'time'}) {
         push(@syscmd,'--time',$opt{'time'});
     }
@@ -514,6 +528,9 @@ sub duplist {
     if($opt{'ssh-options'}) {
         push(@syscmd,'--ssh-options',$opt{'ssh-options'});
     }
+    if($opt{'tempdir'}) {
+        push(@syscmd,'--tempdir',$opt{'tempdir'});
+    }
     if($opt{'time'}) {
         push(@syscmd,'--time',$opt{'time'});
     }
@@ -560,6 +577,9 @@ sub dupstat {
     }
     if($opt{'ssh-options'}) {
         push(@syscmd,'--ssh-options',$opt{'ssh-options'});
+    }
+    if($opt{'tempdir'}) {
+        push(@syscmd,'--tempdir',$opt{'tempdir'});
     }
 
     if($opt{'noop'}) {
