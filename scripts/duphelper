@@ -1,5 +1,40 @@
 #!/usr/bin/perl
 use warnings; use strict;
+use English qw( -no_match_vars );
+
+### Perl Critic Notes ###
+#
+## no critic qw(InputOutput::ProhibitBacktickOperators)
+#
+# Using IPC::open3 in place of backticks adds complexity and reduces
+# readability for the dubious gain of capturing stderr even when it's
+# perfectly reasonable for stderr to just dump to the console.
+#
+## no critic qw(ValuesAndExpressions::ProhibitConstantPragma)
+#
+# We are using constants for exit values.  These will never be
+# interpolated, and ReadOnly is not a core module.
+#
+## no critic qw(ValuesAndExpressions::ProhibitMagicNumbers)
+#
+# Anything that involves setting default values will actually be less
+# readable if those values are concealed behind names in a different
+# part of the code.
+#
+## no critic qw(RegularExpressions::RequireDotMatchAnything)
+#
+# Tampering with the default behavior of regular expressions can be
+# more confusing than not, depending on what behavior you are used to.
+#
+## no critic qw(ValuesAndExpressions::ProhibitEmptyQuotes)
+## no critic qw(ValuesAndExpressions::ProhibitNoisyQuotes)
+#
+# I just generally disagree about which format is more readable
+#
+## no critic qw(Variables::RequireLocalizedPunctuationVars)
+#
+# We are deliberately tampering with $ENV{'home'} in a global scope
+#
 
 =head1 NAME
 
@@ -21,8 +56,8 @@ use Sys::Hostname;
 use Time::localtime;
 
 # Exit values
-use constant EXIT_SUCCESS	=> 0;
-use constant EXIT_BADCOMMAND	=> 1;
+use constant EXIT_SUCCESS       => 0;
+use constant EXIT_BADCOMMAND    => 1;
 use constant EXIT_SYSTEMFAIL    => 2;
 use constant EXIT_DUPLICITYFAIL => 3;
 use constant EXIT_CONFIGERROR   => 4;
@@ -227,38 +262,38 @@ my @config_rootexclude = $config->val('duphelper','rootexclude');
 
 # Default option values
 my %opt = (
-    'archive-dir'	=> $config->val('duplicity','archive-dir') || '/var/cache/duplicity',
+    'archive-dir'       => $config->val('duplicity','archive-dir') || '/var/cache/duplicity',
     'archive-dir-hostname' => $config->val('duphelper','archive-dir-hostname') || 1,
-    'cleancount'	=> $config->val('duphelper','cleancount') || 2,
-    'cleaninterval'	=> $config->val('duphelper','cleaninterval') || '1Y',
-    'dry-run'		=> undef,
-    'encrypt-key'	=> \@config_encryptkeys || undef,
+    'cleancount'        => $config->val('duphelper','cleancount') || 2,
+    'cleaninterval'     => $config->val('duphelper','cleaninterval') || '1Y',
+    'dry-run'           => undef,
+    'encrypt-key'       => \@config_encryptkeys || undef,
     'exclude-device-files' => $config->val('duplicity','exclude-device-files') || 0,
     'exclude-filelist'  => $config->val('duplicity','exclude-filelist') || '/etc/duplicity/exclude',
     'exclude-globbing-filelist' => $config->val('duplicity','exclude-globbing-filelist') || '/etc/duplicity/exclude.glob',
     'exclude-other-filesystems' => $config->val('duplicity','exclude-other-filesystems') || 0,
-    'full'		=> undef,
-    'fullinterval'	=> $config->val('duphelper','fullinterval') || '1M',
-    'gpg-options'	=> $config->val('encryption','gpg-options') || '',
-    'home'		=> $config->val('duphelper','home') || undef,
-    'hostname'		=> $config->val('duphelper','hostname') || hostname(),
-    'log-file'		=> $config->val('duplicity','log-file') || undef,
-    'no-encryption'	=> $config->val('encryption','no-encryption') || 0,
+    'full'              => undef,
+    'fullinterval'      => $config->val('duphelper','fullinterval') || '1M',
+    'gpg-options'       => $config->val('encryption','gpg-options') || '',
+    'home'              => $config->val('duphelper','home') || undef,
+    'hostname'          => $config->val('duphelper','hostname') || hostname(),
+    'log-file'          => $config->val('duplicity','log-file') || undef,
+    'no-encryption'     => $config->val('encryption','no-encryption') || 0,
     'no-print-statistics' => $config->val('duplicity','no-print-statistics') || 0,
-    'noop'		=> 0,
-    'remotedir'		=> $config->val('duphelper','remotedir') || undef,
-    'remotehost'	=> $config->val('duphelper','remotehost') || undef,
-    'remoteport'	=> $config->val('duphelper','remoteport') || undef,
-    'remoteproto'	=> $config->val('duphelper','remoteproto') || undef,
-    'remoteuser'	=> $config->val('duphelper','remoteuser') || undef,
-    'remoteym'		=> $config->val('duphelper','remoteym') || 0,
-    'rootexclude'	=> \@config_rootexclude || undef,
-    'ssh-backend'	=> $config->val('duplicity','ssh-backend') || undef,
-    'ssh-options'	=> $config->val('duplicity','ssh-options') || '',
-    'tempdir'		=> $config->val('duplicity','tempdir') || undef,
-    'time'		=> undef,
-    'verbosity'		=> $config->val('duplicity','verbosity') || 4,
-    'volsize'		=> $config->val('duplicity','volsize') || 25,
+    'noop'              => 0,
+    'remotedir'         => $config->val('duphelper','remotedir') || undef,
+    'remotehost'        => $config->val('duphelper','remotehost') || undef,
+    'remoteport'        => $config->val('duphelper','remoteport') || undef,
+    'remoteproto'       => $config->val('duphelper','remoteproto') || undef,
+    'remoteuser'        => $config->val('duphelper','remoteuser') || undef,
+    'remoteym'          => $config->val('duphelper','remoteym') || 0,
+    'rootexclude'       => \@config_rootexclude || undef,
+    'ssh-backend'       => $config->val('duplicity','ssh-backend') || undef,
+    'ssh-options'       => $config->val('duplicity','ssh-options') || '',
+    'tempdir'           => $config->val('duplicity','tempdir') || undef,
+    'time'              => undef,
+    'verbosity'         => $config->val('duplicity','verbosity') || 4,
+    'volsize'           => $config->val('duplicity','volsize') || 25,
    );
 
 GetOptions(
@@ -328,7 +363,7 @@ my %dispatch = (
     'dupver' => \&dupver,
    );
 
-my $command = basename($0);
+my $command = basename($PROGRAM_NAME);
 if (defined $dispatch{$command}) {
     $dispatch{$command}(@ARGV);
 }
@@ -336,7 +371,7 @@ else {
     $command = shift;
     if (!$command) {
         print {*STDERR} "I don't know what to do!\n";
-        print {*STDERR} "I was invoked as: $0 (with no arguments)\n";
+        print {*STDERR} "I was invoked as: $PROGRAM_NAME (with no arguments)\n";
         print {*STDERR} "(I expected to be invoked either with the name of a valid command,\nor with a valid command as my first argument.)\n";
         print {*STDERR} "Valid commands are: ",join(' ',sort keys %dispatch),"\n";
         exit EXIT_BADCOMMAND;
@@ -346,7 +381,7 @@ else {
     }
     else {
         print {*STDERR} "I don't know what to do!\n";
-        print {*STDERR} "I was invoked as: $0 $command\n";
+        print {*STDERR} "I was invoked as: $PROGRAM_NAME $command\n";
         print {*STDERR} "(I expected to be invoked either with the name of a valid command,\nor with a valid command as my first argument.)\n";
         print {*STDERR} "Valid commands are: ",join(' ',sort keys %dispatch),"\n";
         exit EXIT_BADCOMMAND;
@@ -475,7 +510,7 @@ sub dupback {
     }
 
     system(@syscmd);
-    exit system_result($?,@syscmd);
+    exit system_result($CHILD_ERROR,@syscmd);
 }
 
 
@@ -533,7 +568,7 @@ sub dupclean {
     }
     else {
         system(@syscmd);
-        system_result($?,@syscmd);
+        system_result($CHILD_ERROR,@syscmd);
     }
 
     @syscmd = (
@@ -560,7 +595,7 @@ sub dupclean {
     }
     else {
         system(@syscmd);
-        exit system_result($?,@syscmd);
+        exit system_result($CHILD_ERROR,@syscmd);
     }
 }
 
@@ -621,7 +656,7 @@ sub dupcleancount {
     }
 
     system(@syscmd);
-    exit system_result($?,@syscmd);
+    exit system_result($CHILD_ERROR,@syscmd);
 }
 
 
@@ -705,7 +740,7 @@ sub dupget {
     }
 
     system(@syscmd);
-    exit system_result($?,@syscmd);
+    exit system_result($CHILD_ERROR,@syscmd);
 }
 
 
@@ -756,7 +791,7 @@ sub duplist {
     }
 
     system(@syscmd);
-    exit system_result($?,@syscmd);
+    exit system_result($CHILD_ERROR,@syscmd);
 }
 
 
@@ -808,7 +843,7 @@ sub dupstat {
 
     if (remote_backup_exists(dashpath => $dashpath)) {
         system(@syscmd);
-        exit system_result($?,@syscmd);
+        exit system_result($CHILD_ERROR,@syscmd);
     }
     else {
         print {*STDERR} "Remote URL has no backups or is unavailable.\n";
@@ -831,8 +866,8 @@ sub dashpath {
         exit EXIT_INTERNALERROR;
     }
 
-    $path =~ s|^/|@|;
-    $path =~ s|/|-|g;
+    $path =~ s|^/|@|x;
+    $path =~ s|/|-|gx;
     return $path;
 }
 
@@ -852,7 +887,7 @@ sub get_ymdir {
         if ($opt{'remoteym'} == 1) {
             $ymdir = $yearmonth;
         }
-        elsif ($opt{'remoteym'} =~ /\d{6}/) {
+        elsif ($opt{'remoteym'} =~ /\d{6}/x) {
             $ymdir = $opt{'remoteym'};
         }
         else {
@@ -898,10 +933,10 @@ sub remote_backup_exists {
     }
 
     if ($test eq 'dir') {
-        $regexp = qr/$remotedir\/$dashpath/;
+        $regexp = qr/$remotedir\/$dashpath/x;
     }
     elsif ($test eq 'manifest') {
-        $regexp = qr/$remotedir\/$dashpath\/.*\.manifest\.gpg/;
+        $regexp = qr/$remotedir\/$dashpath\/.*\.manifest\.gpg/x;
         $remotedir .= '/' . $dashpath;
     }
     else {
@@ -912,7 +947,7 @@ sub remote_backup_exists {
     my $output;
     my @lines;
 
-    if ($opt{'remoteproto'} =~ /^(sftp|scp|ssh)/) {
+    if ($opt{'remoteproto'} =~ /^(sftp|scp|ssh)/x) {
         my $cmd = "echo '-ls " . $remotedir . "' | sftp -b - "
                   . $opt{'ssh-options'} . " "
                   . $opt{'remoteuser'} . '@' . $opt{'remotehost'}
@@ -923,9 +958,9 @@ sub remote_backup_exists {
         }
         else {
             $output = `$cmd`;
-            system_result($?,$cmd);
+            system_result($CHILD_ERROR,$cmd);
 
-            @lines = split(/^/,$output);
+            @lines = split(/^/x,$output);
 
             if ($#lines == -1) {
                 print {*STDERR} "WARNING: failed to list remote parent directory!\n";
@@ -936,7 +971,7 @@ sub remote_backup_exists {
                 # sftp returned exactly one line listing the command executed
                 return 0;
             }
-            if (grep(/$regexp/,@lines)) {
+            if (grep { /$regexp/x } @lines) {
                 return 1;
             }
         }
@@ -957,7 +992,7 @@ sub remote_create_dir {
     my $proto = shift;
     my $ymdir;
 
-    if ($proto =~ /^(sftp|scp|ssh)/ ) {
+    if ($proto =~ /^(sftp|scp|ssh)/x ) {
         my $cmd = "echo '-mkdir duplicity/" . $opt{'hostname'}
           . "' | sftp -b - " . $opt{'ssh-options'} . " "
           . $opt{'remoteuser'} . '@' . $opt{'remotehost'}
@@ -968,7 +1003,7 @@ sub remote_create_dir {
         }
         else {
             system($cmd);
-            system_result($?,$cmd);
+            system_result($CHILD_ERROR,$cmd);
         }
 
         # An additional directory level needs to be created when
@@ -985,13 +1020,14 @@ sub remote_create_dir {
             }
             else {
                 system($cmd);
-                system_result($?,$cmd);
+                system_result($CHILD_ERROR,$cmd);
             }
         }
     }
     else {
         print {*STDERR} "WARNING: unable to pre-create remote directory with protocol $proto\n";
     }
+    return;
 }
 
 
@@ -1053,27 +1089,26 @@ sub system_result {
     # Returns 0 if it was a success
     # EXITS WITH AN ERROR if not!
 
-    my $retval = shift;
-    my @syscmd = @_;
+    my ($retval,@syscmd) = @_;
 
-    if ( ($? >> 8) == 0 )
+    if ( ($CHILD_ERROR >> 8) == 0 )
     {
         return 0;
     }
-    elsif ($? == -1) {
-        print {*STDERR} "Failed to execute: $!\n";
-        print {*STDERR} "System call: ",join(' ',@syscmd);
+    elsif ($CHILD_ERROR == -1) {
+        print {*STDERR} "Failed to execute: $ERRNO\n";
+        print {*STDERR} "System call: ",join(' ',@syscmd),"\n";
         exit EXIT_SYSTEMFAIL;
     }
-    elsif ($? & 127) {
+    elsif ($CHILD_ERROR & 127) {
         printf {*STDERR} "Child died with signal %d, %s coredump\n",
-          ($? & 127), ($? & 128) ? 'with' : 'without';
-        print {*STDERR} "System call: ",join(' ',@syscmd);
+          ($CHILD_ERROR & 127), ($CHILD_ERROR & 128) ? 'with' : 'without';
+        print {*STDERR} "System call: ",join(' ',@syscmd),"\n";
         exit EXIT_SYSTEMFAIL;
     }
     else {
-        printf {*STDERR} "Child exited with value %d\n", $? >> 8;
-        print {*STDERR} "System call: ",join(' ',@syscmd);
+        printf {*STDERR} "Child exited with value %d\n", $CHILD_ERROR >> 8;
+        print {*STDERR} "System call: ",join(' ',@syscmd),"\n";
         exit EXIT_SYSTEMFAIL;
    }
 }
