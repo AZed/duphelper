@@ -203,6 +203,10 @@ all backups, such as:
 
 =item --no-print-statistics
 
+=item --ssh-backend
+
+Allows the explicit selection of a ssh backend.  Valid values are 'paramiko' and 'pexpect'
+
 =item --ssh-options
 
 =item --tempdir
@@ -249,6 +253,7 @@ my %opt = (
     'remoteuser'	=> $config->val('duphelper','remoteuser') || undef,
     'remoteym'		=> $config->val('duphelper','remoteym') || 0,
     'rootexclude'	=> \@config_rootexclude || undef,
+    'ssh-backend'	=> $config->val('duplicity','ssh-backend') || undef,
     'ssh-options'	=> $config->val('duplicity','ssh-options') || '',
     'tempdir'		=> $config->val('duplicity','tempdir') || undef,
     'time'		=> undef,
@@ -282,6 +287,7 @@ GetOptions(
     'remoteuser=s',
     'remoteym=s',
     'rootexclude=s@',
+    'ssh-backend=s',
     'ssh-options=s',
     'tempdir=s',
     'time|restore-time|t=s',
@@ -423,6 +429,9 @@ sub dupback {
     if($opt{'no-print-statistics'}) {
         push(@syscmd,'--no-print-statistics');
     }
+    if($opt{'ssh-backend'}) {
+        push(@syscmd,'--ssh-backend',$opt{'ssh-backend'});
+    }
     if($opt{'ssh-options'}) {
         push(@syscmd,'--ssh-options',$opt{'ssh-options'});
     }
@@ -508,6 +517,9 @@ sub dupclean {
     if($opt{'no-print-statistics'}) {
         push(@syscmd,'--no-print-statistics');
     }
+    if($opt{'ssh-backend'}) {
+        push(@syscmd,'--ssh-backend',$opt{'ssh-backend'});
+    }
     if($opt{'ssh-options'}) {
         push(@syscmd,'--ssh-options',$opt{'ssh-options'});
     }
@@ -530,6 +542,9 @@ sub dupclean {
        );
     if($opt{'dry-run'}) {
         push(@syscmd,'--dry-run');
+    }
+    if($opt{'ssh-backend'}) {
+        push(@syscmd,'--ssh-backend',$opt{'ssh-backend'});
     }
     if($opt{'ssh-options'}) {
         push(@syscmd,'--ssh-options',$opt{'ssh-options'});
@@ -588,6 +603,9 @@ sub dupcleancount {
     }
     if($opt{'no-print-statistics'}) {
         push(@syscmd,'--no-print-statistics');
+    }
+    if($opt{'ssh-backend'}) {
+        push(@syscmd,'--ssh-backend',$opt{'ssh-backend'});
     }
     if($opt{'ssh-options'}) {
         push(@syscmd,'--ssh-options',$opt{'ssh-options'});
@@ -664,6 +682,9 @@ sub dupget {
     if($opt{'no-print-statistics'}) {
         push(@syscmd,'--no-print-statistics');
     }
+    if($opt{'ssh-backend'}) {
+        push(@syscmd,'--ssh-backend',$opt{'ssh-backend'});
+    }
     if($opt{'ssh-options'}) {
         push(@syscmd,'--ssh-options',$opt{'ssh-options'});
     }
@@ -716,6 +737,9 @@ sub duplist {
     if($opt{'dry-run'}) {
         push(@syscmd,'--dry-run');
     }
+    if($opt{'ssh-backend'}) {
+        push(@syscmd,'--ssh-backend',$opt{'ssh-backend'});
+    }
     if($opt{'ssh-options'}) {
         push(@syscmd,'--ssh-options',$opt{'ssh-options'});
     }
@@ -765,6 +789,9 @@ sub dupstat {
     }
     if($opt{'no-print-statistics'}) {
         push(@syscmd,'--no-print-statistics');
+    }
+    if($opt{'ssh-backend'}) {
+        push(@syscmd,'--ssh-backend',$opt{'ssh-backend'});
     }
     if($opt{'ssh-options'}) {
         push(@syscmd,'--ssh-options',$opt{'ssh-options'});
@@ -1118,6 +1145,7 @@ exclude-globbing-filelist=/etc/duplicity/exclude.glob
 exclude-other-filesystems=0
 log-file=/var/log/duplicity.log
 no-print-statistics=1
+#ssh-backend=pexpect
 #ssh-options=-oIdentityFile=/root/.ssh/id_rsa-backup
 verbosity=1
 volsize=25
