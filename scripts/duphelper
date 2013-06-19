@@ -31,6 +31,12 @@ use English qw( -no_match_vars );
 #
 # I just generally disagree about which format is more readable
 #
+## no critic qw(Subroutines::ProhibitExcessComplexity)
+#
+# This would normally complain about dupback, which is actually very
+# simple code, just long because we have to handle a large number of
+# options.
+#
 ## no critic qw(Variables::RequireLocalizedPunctuationVars)
 #
 # We are deliberately tampering with $ENV{'home'} in a global scope
@@ -51,6 +57,8 @@ See also Usage and Examples in the documentation for each COMMAND, below.
 use Config::IniFiles;
 use File::Basename;
 use File::Path qw(mkpath);
+use File::Spec;
+use IPC::Open3;
 use Getopt::Long;
 use Sys::Hostname;
 use Time::localtime;
@@ -146,6 +154,18 @@ machine, but should only be used with caution.
 
 Print out the duplicity command that would be executed without
 actually running it.
+
+=item --outputlog
+
+This is the base name of the log of stdout and stderr from system
+calls.  It will have appended to it the modified backup path (matching
+the cache directory naming) and .log.
+
+Example: '/var/log/duplicity' will result in logfiles with names such
+as '/var/log/duplicity-@home.log'.
+
+The default value is '-', which is a special case that causes stdout
+and stderr to be output normally and not placed in a log file.
 
 =item --remotedir
 
@@ -281,6 +301,7 @@ my %opt = (
     'no-encryption'     => $config->val('encryption','no-encryption') || 0,
     'no-print-statistics' => $config->val('duplicity','no-print-statistics') || 0,
     'noop'              => 0,
+    'outputlog'         => $config->val('duphelper','outputlog') || '-',
     'remotedir'         => $config->val('duphelper','remotedir') || undef,
     'remotehost'        => $config->val('duphelper','remotehost') || undef,
     'remoteport'        => $config->val('duphelper','remoteport') || undef,
@@ -315,6 +336,7 @@ GetOptions(
     'noop',
     'no-encryption',
     'no-print-statistics',
+    'outputlog=s',
     'remotedir=s',
     'remotehost=s',
     'remoteport=s',
@@ -509,8 +531,8 @@ sub dupback {
         exit EXIT_SUCCESS;
     }
 
-    system(@syscmd);
-    exit system_result($CHILD_ERROR,@syscmd);
+    system_logged($dashpath,@syscmd);
+    exit 0;
 }
 
 
@@ -1083,6 +1105,60 @@ sub remoteurl {
     return $remoteurl;
 }
 
+sub system_logged {
+    # Execute a system call that will be logged appropriately
+    # Dies via system_result() if the child process exits with an error
+
+    my ($dashpath, @syscmd) = @_;
+    my $pid;
+    my $pidfile = "/var/run/duplicity-${dashpath}.pid";
+    my $outlogfile = "$opt{'outputlog'}-${dashpath}.log";
+    my $retval;
+
+    ## no critic qw(InputOutput::ProhibitBarewordFileHandles)
+    ## no critic qw(Variables::RequireInitializationForLocalVars)
+    ## no critic qw(InputOutput::RequireBriefOpen)
+    #
+    # We're doing some mildly questionable things here to support
+    # open3, which doesn't seem to support automatic writing to
+    # lexical filehandles in any obvious way.
+    #
+
+    local *NULL;
+    open(NULL,'<',File::Spec->devnull())
+      or die("Failed to open '",File::Spec->devnull(),"' for reading!\n");
+    open(my $fh_pid,'>',$pidfile)
+      or die("Failed to open '",$pidfile,"' for writing!\n");
+
+    if($opt{'outputlog'} eq '-') {
+        # We are printing directly to stdout/stderr
+        $pid = open3("<&NULL",">&STDOUT",">&STDERR",@syscmd);
+        print {*$fh_pid} "${pid}\n";
+        close($fh_pid) or die ("Unable to close pidfile '",$pidfile,"'!\n");
+
+        waitpid($pid,0);
+        $retval = $CHILD_ERROR;
+        unlink($pidfile) or die("Unable to remove pidfile '",$pidfile,"'!\n");
+    }
+    else {
+        local *OUTLOG;
+        open(OUTLOG,'>>',$outlogfile)
+          or die("Failed to open '",$outlogfile,"' for append!\n");
+
+        $pid = open3("<&NULL",">&OUTLOG",undef,@syscmd);
+        print {*$fh_pid} "${pid}\n";
+        close($fh_pid) or die ("Unable to close pidfile '",$pidfile,"'!\n");
+
+        waitpid($pid,0);
+        $retval = $CHILD_ERROR;
+        unlink($pidfile) or die("Unable to remove pidfile '",$pidfile,"'!\n");
+
+        # We can't close NULL, but we should check on the output log
+        close(OUTLOG) or die ("Unable to close output log '",$outlogfile,"'!\n");
+    }
+    system_result($retval,@syscmd);
+    return;
+}
 
 sub system_result {
     # Parse the result of a system call
