@@ -421,6 +421,10 @@ else {
 
 Back up a specified path
 
+This will create a pidfile in /var/run specific to the path being
+backed up, and will not run if a previous backup is still running on
+that path.
+
 =head3 Usage
 
  dupback /path [FULLINTERVAL]
@@ -532,7 +536,7 @@ sub dupback {
     }
 
     system_logged($dashpath,@syscmd);
-    exit 0;
+    exit EXIT_SUCCESS;
 }
 
 
@@ -921,6 +925,28 @@ sub get_ymdir {
     return $ymdir;
 }
 
+
+sub pidfile_running {
+    # Returns 1 if the specified pidfile exists and contains the PID
+    # number of a running process
+    #
+    # Returns 0 otherwise
+    #
+    # Dies if a pidfile is found but cannot be opened
+
+    my $pidfile = shift;
+    my $pid;
+
+    if ( -f $pidfile ) {
+        open(my $fh_pidfile,'<',$pidfile)
+          or die("Found pidfile '",$pidfile,"' but unable to open it!\n");
+        $pid=<$fh_pidfile>;
+        if ( kill(0,$pid) ) { return 1; }
+    }
+    return 0;
+}
+
+
 sub remote_backup_exists {
     # Uses an argument hash with the following valid keys and values
     #  'dashpath'
@@ -1106,7 +1132,12 @@ sub remoteurl {
 }
 
 sub system_logged {
-    # Execute a system call that will be logged appropriately
+    # Execute a system call that will be logged appropriately,
+    # creating a pidfile to lock the process
+    #
+    # Prints a warning message and returns without doing anything if
+    # there is already a pidfile containing a running process
+    #
     # Dies via system_result() if the child process exits with an error
 
     my ($dashpath, @syscmd) = @_;
@@ -1114,6 +1145,13 @@ sub system_logged {
     my $pidfile = "/var/run/duplicity-${dashpath}.pid";
     my $outlogfile = "$opt{'outputlog'}-${dashpath}.log";
     my $retval;
+
+    if(pidfile_running($pidfile)) {
+        print {*STDERR} "WARNING: found an active process in ${pidfile}!\n";
+        print {*STDERR} "Not running:\n";
+        print {*STDERR} join(' ',@syscmd),"\n";
+        return;
+    }
 
     ## no critic qw(InputOutput::ProhibitBarewordFileHandles)
     ## no critic qw(Variables::RequireInitializationForLocalVars)
