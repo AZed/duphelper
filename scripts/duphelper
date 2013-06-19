@@ -422,8 +422,8 @@ else {
 Back up a specified path
 
 This will create a pidfile in /var/run specific to the path being
-backed up, and will not run if a previous backup is still running on
-that path.
+backed up, and will not run if a previous backup or clean operation is
+still running on that path.
 
 =head3 Usage
 
@@ -551,6 +551,10 @@ It is possible for this command to leave you without any backups if
 all of your backups are old.  For a safer alternative, use
 dupcleancount.
 
+This will create a pidfile in /var/run specific to the path being
+backed up, and will not run if a previous backup or clean operation is
+still running on that path.
+
 =head3 Usage
 
  dupclean <path>
@@ -593,8 +597,7 @@ sub dupclean {
         print "Not executing: ",join(' ',@syscmd),"\n";
     }
     else {
-        system(@syscmd);
-        system_result($CHILD_ERROR,@syscmd);
+        system_logged($dashpath,@syscmd);
     }
 
     @syscmd = (
@@ -620,8 +623,8 @@ sub dupclean {
         exit EXIT_SUCCESS;
     }
     else {
-        system(@syscmd);
-        exit system_result($CHILD_ERROR,@syscmd);
+        system_logged($dashpath,@syscmd);
+        exit EXIT_SUCCESS;
     }
 }
 
@@ -629,6 +632,10 @@ sub dupclean {
 =head2 C<dupcleancount>
 
 Remove all backups except the last 'cleancount' backups.
+
+This will create a pidfile in /var/run specific to the path being
+backed up, and will not run if a previous backup or clean operation is
+still running on that path.
 
 =head3 Usage
 
@@ -681,8 +688,8 @@ sub dupcleancount {
         exit EXIT_SUCCESS;
     }
 
-    system(@syscmd);
-    exit system_result($CHILD_ERROR,@syscmd);
+    system_logged($dashpath,@syscmd);
+    exit EXIT_SUCCESS;
 }
 
 
