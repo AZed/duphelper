@@ -72,29 +72,24 @@ use constant EXIT_CONFIGERROR   => 4;
 use constant EXIT_INTERNALERROR => 5;
 
 
-########################################
-########## CONFIGURATION FILE ##########
-########################################
-
-# Check first /usr/local/etc/duplicity and then /usr/local/duplicity
-my $config;
-my $configfile1 = "/usr/local/etc/duplicity/duphelper.cfg";
-my $configfile2 = "/etc/duplicity/duphelper.cfg";
-
-if(-f $configfile1)
-{
-    $config = Config::IniFiles->new( -file => $configfile1 );
-}
-elsif(-f $configfile2)
-{
-    $config = Config::IniFiles->new( -file => $configfile2 );
-}
-$config = Config::IniFiles->new() unless($config);
-
-
 #####################################
 ########## OPTION HANDLING ##########
 #####################################
+
+=head1 CONFIGURATION FILES
+
+Duphelper will check in two directories for configuration files:
+/usr/local/etc/duplicity and /etc/duplicity, in that order.  It will
+first check for a configuration file in the format of
+duphelper@base-path.cfg, where the first '/' in a path is converted to
+a '@' and all subsequent '/' characters are converted to '-'.
+
+For example, '/' will convert just to '@', '/usr/local/etc' will
+convert to '@usr-local-etc', and YES this implies that if you have
+'/usr/local-etc and /usr/local/etc on the same system, you will have
+problems trying to back them up separately with this helper, so don't
+do that.)
+
 
 =head1 OPTIONS
 
@@ -275,6 +270,9 @@ Allows the explicit selection of a ssh backend.  Valid values are 'paramiko' and
 =back
 
 =cut
+
+my $backuppath = $ARGV[0] || '/';
+my $config = loadconfig($backuppath);
 
 # Array option pre-handling
 my @config_encryptkeys = $config->val('encryption','encrypt-key');
@@ -930,6 +928,42 @@ sub get_ymdir {
     }
 
     return $ymdir;
+}
+
+sub loadconfig {
+    # Load configuration options from a configuration file
+    #
+    # We check first for duphelper@path.cfg in
+    # /usr/local/etc/duplicity and /etc/duplicity, then if neither is
+    # found, duphelper.cfg in /usr/local/etc/duplicity and
+    # /etc/duplicity, in that order.
+
+    my ($backuppath) = @_;
+    my $dashpath = dashpath($backuppath);
+
+    my $config;
+    my @configpaths = ('/usr/local/etc/duplicity/',
+                       '/etc/duplicity/');
+    my @possibleconfigs;
+
+    if ($dashpath) {
+        foreach my $configpath (@configpaths) {
+            push (@possibleconfigs,
+                  $configpath . "duphelper" . $dashpath . ".cfg");
+        }
+    }
+    foreach my $configpath (@configpaths) {
+        push (@possibleconfigs,$configpath . "duphelper.cfg");
+    }
+
+    foreach my $configfile (@possibleconfigs) {
+        if (-f $configfile ) {
+            $config = Config::IniFiles->new( -file => $configfile );
+            last;
+        }
+    }
+    $config = Config::IniFiles->new() unless($config);
+    return $config;
 }
 
 
