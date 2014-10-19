@@ -58,6 +58,7 @@ use Config::IniFiles;
 use File::Basename;
 use File::Path qw(mkpath);
 use File::Spec;
+use File::Util;
 use IPC::Open3;
 use Getopt::Long;
 use Sys::Hostname;
@@ -204,6 +205,34 @@ will not apply.
 This option can be specified multiple times to exclude multiple files
 or directories.
 
+=item --separate-subdirs | --sepsub
+
+If this is specified, then all subdirectories of the target directory
+will be excluded from the main backup, and then backed up one by one
+separately.
+
+Use caution with this option -- this will make it much easier to
+accidentally end up with a path naming conflict if you have
+directories with hyphenated names (/path/a/b/c may not be backed up as
+a separate direct target from /path/a-b/c)
+
+Any separately handled subdirectories will still use the configuration
+file of the main target directory.  If you need them to use their own
+config files, exclude them from the top directory manually and invoke
+duphelper a second time to target them specifically.
+
+=item --separate-subdirs-list || --sepsublist
+
+If this is specified, a limited list of subdirectories of the target
+directory will be excluded from the main backup, and then backed up
+one by one separately.
+
+See the caution notes on --separate-subdirs, above.  If both
+--separate-subdirs and --separate-subdirs-list are specified,
+--separate-subdirs wins (i.e. the any list you specify in
+--separate-subdirs will be ignored and replaced with a list of all
+subdirectories of the main target directory).
+
 =back
 
 =head2 Duplicity Options
@@ -294,8 +323,21 @@ my %dispatch = (
    );
 
 my $command = basename($PROGRAM_NAME);
+
 if (defined $dispatch{$command}) {
-    $dispatch{$command}(@ARGV);
+    if (@{$opt{'separate-subdirs-list'}}) {
+        print "DEBUG: ",join(' | ',@ARGV),"\n";
+        $dispatch{$command}(@ARGV);
+        my $startdir = $ARGV[0];
+        foreach my $subdir (@{$opt{'separate-subdirs-list'}}) {
+            shift;
+            unshift(@ARGV, $startdir . '/' . $subdir);
+            $dispatch{$command}(@ARGV);
+        }
+    }
+    else {
+        $dispatch{$command}(@ARGV);
+    }
 }
 else {
     $command = shift;
@@ -316,6 +358,7 @@ else {
         print {*STDERR} "Valid commands are: ",join(' ',sort keys %dispatch),"\n";
         exit EXIT_BADCOMMAND;
     }
+    exit EXIT_SUCCESS;
 }
 
 
@@ -443,11 +486,11 @@ sub dupback {
 
     if($opt{'noop'}) {
         print "Not executing: ",join(' ',@syscmd),"\n";
-        exit EXIT_SUCCESS;
+        return EXIT_SUCCESS;
     }
 
     system_logged($dashpath,@syscmd);
-    exit EXIT_SUCCESS;
+    return EXIT_SUCCESS;
 }
 
 
@@ -531,11 +574,11 @@ sub dupclean {
 
     if($opt{'noop'}) {
         print "Not executing: ",join(' ',@syscmd),"\n";
-        exit EXIT_SUCCESS;
+        return EXIT_SUCCESS;
     }
     else {
         system_logged($dashpath,@syscmd);
-        exit EXIT_SUCCESS;
+        return EXIT_SUCCESS;
     }
 }
 
@@ -596,11 +639,11 @@ sub dupcleancount {
 
     if($opt{'noop'}) {
         print "Not executing: ",join(' ',@syscmd),"\n";
-        exit EXIT_SUCCESS;
+        return EXIT_SUCCESS;
     }
 
     system_logged($dashpath,@syscmd);
-    exit EXIT_SUCCESS;
+    return EXIT_SUCCESS;
 }
 
 
@@ -680,11 +723,11 @@ sub dupget {
 
     if($opt{'noop'}) {
         print "Not executing: ",join(' ',@syscmd),"\n";
-        exit EXIT_SUCCESS;
+        return EXIT_SUCCESS;
     }
 
     system(@syscmd);
-    exit system_result($CHILD_ERROR,@syscmd);
+    return system_result($CHILD_ERROR,@syscmd);
 }
 
 
@@ -731,11 +774,11 @@ sub duplist {
 
     if($opt{'noop'}) {
         print "Not executing: ",join(' ',@syscmd),"\n";
-        exit EXIT_SUCCESS;
+        return EXIT_SUCCESS;
     }
 
     system(@syscmd);
-    exit system_result($CHILD_ERROR,@syscmd);
+    return system_result($CHILD_ERROR,@syscmd);
 }
 
 
@@ -782,16 +825,16 @@ sub dupstat {
     if($opt{'noop'}) {
         remote_backup_exists(dashpath => $dashpath);
         print "Not executing: ",join(' ',@syscmd),"\n";
-        exit EXIT_SUCCESS;
+        return EXIT_SUCCESS;
     }
 
     if (remote_backup_exists(dashpath => $dashpath)) {
         system(@syscmd);
-        exit system_result($CHILD_ERROR,@syscmd);
+        return system_result($CHILD_ERROR,@syscmd);
     }
     else {
         print {*STDERR} "Remote URL has no backups or is unavailable.\n";
-        exit EXIT_SUCCESS;
+        return EXIT_SUCCESS;
     }
 }
 
@@ -874,10 +917,19 @@ sub loadconfig {
     foreach my $configfile (@possibleconfigs) {
         if (-f $configfile ) {
             $config = Config::IniFiles->new( -file => $configfile );
+
+            # Special check to disable --separate-subdirs in the
+            # default config file
+            (my $basename,undef,undef) = fileparse($configfile);
+            if($basename eq 'duphelper.cfg') {
+                $config->setval('duphelper','separate-subdirs',0);
+            }
+
             last;
         }
     }
     $config = Config::IniFiles->new() unless($config);
+
     return $config;
 }
 
@@ -893,6 +945,7 @@ sub parse_options {
     # Array option pre-handling
     my @config_encryptkeys = $config->val('encryption','encrypt-key');
     my @config_rootexclude = $config->val('duphelper','rootexclude');
+    my @config_subdirs_list = $config->val('duphelper','separate-subdirs-list');
 
     # Default option values
     my %opt = (
@@ -924,6 +977,8 @@ sub parse_options {
         'remoteuser'        => $config->val('duphelper','remoteuser') || undef,
         'remoteym'          => $config->val('duphelper','remoteym') || 0,
         'rootexclude'       => \@config_rootexclude || undef,
+        'separate-subdirs'  => $config->val('duphelper','separate-subdirs') || 0,
+        'separate-subdirs-list' => \@config_subdirs_list || undef,
         'ssh-backend'       => $config->val('duplicity','ssh-backend') || undef,
         'ssh-options'       => $config->val('duplicity','ssh-options') || '',
         'tempdir'           => $config->val('duplicity','tempdir') || undef,
@@ -960,6 +1015,8 @@ sub parse_options {
         'remoteuser=s',
         'remoteym=s',
         'rootexclude=s@',
+        'separate-subdirs|sepsub',
+        'separate-subdirs-list|sepsublist=s@',
         'ssh-backend=s',
         'ssh-options=s',
         'tempdir=s',
@@ -983,6 +1040,19 @@ sub parse_options {
         $opt{'fullinterval'} = 'now';
     }
 
+    # If backing up subdirs separately, add them to the excluded list
+    if ($opt{'separate-subdirs'}) {
+        my $fu = File::Util->new();
+        my @subdirs = $fu->list_dir($backuppath  => { dirs_only => 1,
+                                                      no_fsdots => 1,
+                                                      recurse   => 0, });
+        $opt{'separate-subdirs-list'} = \@subdirs;
+        push(@{$opt{'exclude'}},@subdirs);
+    }
+    elsif ($opt{'separate-subdirs-list'}) {
+        push(@{$opt{'exclude'}},@{$opt{'separate-subdirs-list'}});
+    }
+
     return %opt;
 }
 
@@ -1002,6 +1072,7 @@ sub pidfile_running {
         open(my $fh_pidfile,'<',$pidfile)
           or die("Found pidfile '",$pidfile,"' but unable to open it!\n");
         $pid=<$fh_pidfile>;
+        close($fh_pidfile);
         if ( kill(0,$pid) ) { return 1; }
     }
     return 0;
@@ -1345,6 +1416,26 @@ rootexclude=/lost+found
 rootexclude=/proc
 rootexclude=/sys
 rootexclude=/var/cache/duplicity
+
+# If separate-subdirs is set to 1, then all subdirectories of the
+# target directory will be excluded from the main backup, and then
+# backed up one by one separately.
+#
+# This option will be ignored (forced off) if found in the default
+# configuration file to prevent unintentional recursions that are
+# unlikely to work well.  If you need separate subdir backups on the
+# root directory, explicitly create a configuration file
+# 'duplicity@.cfg' for it.
+separate-subdirs=0
+
+# If separate-subdirs is 0, then separate-subdirs-list can be used
+# instead to specify a limited list of subdirectories that will be
+# automatically excluded and backed up one by one separately.
+#
+# This option will also be ignored (forced empty) if found in the
+# default configuration file to prevent unintentional recursions.
+#separate-subdirs-list=foo
+#separate-subdirs-list=bar
 
 
 [duplicity]
