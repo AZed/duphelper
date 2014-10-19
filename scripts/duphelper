@@ -272,98 +272,8 @@ Allows the explicit selection of a ssh backend.  Valid values are 'paramiko' and
 =cut
 
 my $backuppath = $ARGV[0] || '/';
-my $config = loadconfig($backuppath);
+my %opt = parse_options($backuppath);
 
-# Array option pre-handling
-my @config_encryptkeys = $config->val('encryption','encrypt-key');
-my @config_rootexclude = $config->val('duphelper','rootexclude');
-
-# Default option values
-my %opt = (
-    'archive-dir'       => $config->val('duplicity','archive-dir') || '/var/cache/duplicity',
-    'archive-dir-hostname' => $config->val('duphelper','archive-dir-hostname') || 1,
-    'cleancount'        => $config->val('duphelper','cleancount') || 2,
-    'cleaninterval'     => $config->val('duphelper','cleaninterval') || '1Y',
-    'dry-run'           => undef,
-    'encrypt-key'       => \@config_encryptkeys || undef,
-    'exclude-device-files' => $config->val('duplicity','exclude-device-files') || 0,
-    'exclude-filelist'  => $config->val('duplicity','exclude-filelist') || '/etc/duplicity/exclude',
-    'exclude-globbing-filelist' => $config->val('duplicity','exclude-globbing-filelist') || '/etc/duplicity/exclude.glob',
-    'exclude-other-filesystems' => $config->val('duplicity','exclude-other-filesystems') || 0,
-    'full'              => undef,
-    'fullinterval'      => $config->val('duphelper','fullinterval') || '1M',
-    'gpg-options'       => $config->val('encryption','gpg-options') || '',
-    'home'              => $config->val('duphelper','home') || undef,
-    'hostname'          => $config->val('duphelper','hostname') || hostname(),
-    'log-file'          => $config->val('duplicity','log-file') || undef,
-    'no-encryption'     => $config->val('encryption','no-encryption') || 0,
-    'no-print-statistics' => $config->val('duplicity','no-print-statistics') || 0,
-    'noop'              => 0,
-    'outputlog'         => $config->val('duphelper','outputlog') || '-',
-    'remotedir'         => $config->val('duphelper','remotedir') || undef,
-    'remotehost'        => $config->val('duphelper','remotehost') || undef,
-    'remoteport'        => $config->val('duphelper','remoteport') || undef,
-    'remoteproto'       => $config->val('duphelper','remoteproto') || undef,
-    'remoteuser'        => $config->val('duphelper','remoteuser') || undef,
-    'remoteym'          => $config->val('duphelper','remoteym') || 0,
-    'rootexclude'       => \@config_rootexclude || undef,
-    'ssh-backend'       => $config->val('duplicity','ssh-backend') || undef,
-    'ssh-options'       => $config->val('duplicity','ssh-options') || '',
-    'tempdir'           => $config->val('duplicity','tempdir') || undef,
-    'time'              => undef,
-    'verbosity'         => $config->val('duplicity','verbosity') || 4,
-    'volsize'           => $config->val('duplicity','volsize') || 25,
-   );
-
-GetOptions(
-    \%opt,
-    'archive-dir',
-    'cleaninterval=s',
-    'encrypt-key=s@',
-    'dry-run',
-    'exclude=s@',
-    'exclude-device-files',
-    'exclude-filelist=s',
-    'exclude-globbing-filelist=s',
-    'full',
-    'fullinterval=s',
-    'gpg-options=s',
-    'home=s',
-    'hostname|h=s',
-    'log-file=s',
-    'noop',
-    'no-encryption',
-    'no-print-statistics',
-    'outputlog=s',
-    'remotedir=s',
-    'remotehost=s',
-    'remoteport=s',
-    'remoteproto=s',
-    'remoteuser=s',
-    'remoteym=s',
-    'rootexclude=s@',
-    'ssh-backend=s',
-    'ssh-options=s',
-    'tempdir=s',
-    'time|restore-time|t=s',
-    'verbosity|v=s',
-    'volsize=i',
-   );
-
-if($opt{'archive-dir-hostname'}) {
-    $opt{'archive-dir'} = $opt{'archive-dir'} . '/' . $opt{'hostname'};
-}
-mkpath($opt{'archive-dir'});
-
-# if remoteport is defined, we need to add it to ssh-options
-if($opt{'remoteport'}) {
-    $opt{'ssh-options'} = "-oPort=$opt{'remoteport'} " . $opt{'ssh-options'};
-}
-
-# --full is shorthand for --fullinterval now
-if($opt{'full'}) {
-    $opt{'fullinterval'} = 'now';
-}
 
 # Current year and month as a 6-digit string, used when remoteym is
 my $yearmonth = sprintf("%04d%02d",localtime->year()+1900,localtime->mon()+1);
@@ -937,6 +847,8 @@ sub loadconfig {
     # /usr/local/etc/duplicity and /etc/duplicity, then if neither is
     # found, duphelper.cfg in /usr/local/etc/duplicity and
     # /etc/duplicity, in that order.
+    #
+    # This will be called automatically from parse_options()
 
     my ($backuppath) = @_;
     my $dashpath = dashpath($backuppath);
@@ -964,6 +876,109 @@ sub loadconfig {
     }
     $config = Config::IniFiles->new() unless($config);
     return $config;
+}
+
+
+sub parse_options {
+    # Parse command-line options and use them to override values from
+    # the configuration file
+
+    my ($backuppath) = @_;
+
+    my $config = loadconfig($backuppath);
+
+    # Array option pre-handling
+    my @config_encryptkeys = $config->val('encryption','encrypt-key');
+    my @config_rootexclude = $config->val('duphelper','rootexclude');
+
+    # Default option values
+    my %opt = (
+        'archive-dir'       => $config->val('duplicity','archive-dir') || '/var/cache/duplicity',
+        'archive-dir-hostname' => $config->val('duphelper','archive-dir-hostname') || 1,
+        'cleancount'        => $config->val('duphelper','cleancount') || 2,
+        'cleaninterval'     => $config->val('duphelper','cleaninterval') || '1Y',
+        'dry-run'           => undef,
+        'encrypt-key'       => \@config_encryptkeys || undef,
+        'exclude-device-files' => $config->val('duplicity','exclude-device-files') || 0,
+        'exclude-filelist'  => $config->val('duplicity','exclude-filelist') || '/etc/duplicity/exclude',
+        'exclude-globbing-filelist' => $config->val('duplicity','exclude-globbing-filelist') || '/etc/duplicity/exclude.glob',
+        'exclude-other-filesystems' => $config->val('duplicity','exclude-other-filesystems') || 0,
+        'full'              => undef,
+        'fullinterval'      => $config->val('duphelper','fullinterval') || '1M',
+        'gpg-options'       => $config->val('encryption','gpg-options') || '',
+        'home'              => $config->val('duphelper','home') || undef,
+        'hostname'          => $config->val('duphelper','hostname') || hostname(),
+        'log-file'          => $config->val('duplicity','log-file') || undef,
+        'no-encryption'     => $config->val('encryption','no-encryption') || 0,
+        'no-print-statistics' => $config->val('duplicity','no-print-statistics') || 0,
+        'noop'              => 0,
+        'outputlog'         => $config->val('duphelper','outputlog') || '-',
+        'remotedir'         => $config->val('duphelper','remotedir') || undef,
+        'remotehost'        => $config->val('duphelper','remotehost') || undef,
+        'remoteport'        => $config->val('duphelper','remoteport') || undef,
+        'remoteproto'       => $config->val('duphelper','remoteproto') || undef,
+        'remoteuser'        => $config->val('duphelper','remoteuser') || undef,
+        'remoteym'          => $config->val('duphelper','remoteym') || 0,
+        'rootexclude'       => \@config_rootexclude || undef,
+        'ssh-backend'       => $config->val('duplicity','ssh-backend') || undef,
+        'ssh-options'       => $config->val('duplicity','ssh-options') || '',
+        'tempdir'           => $config->val('duplicity','tempdir') || undef,
+        'time'              => undef,
+        'verbosity'         => $config->val('duplicity','verbosity') || 4,
+        'volsize'           => $config->val('duplicity','volsize') || 25,
+       );
+
+    GetOptions(
+        \%opt,
+        'archive-dir',
+        'cleaninterval=s',
+        'encrypt-key=s@',
+        'dry-run',
+        'exclude=s@',
+        'exclude-device-files',
+        'exclude-filelist=s',
+        'exclude-globbing-filelist=s',
+        'full',
+        'fullinterval=s',
+        'gpg-options=s',
+        'home=s',
+        'hostname|h=s',
+        'log-file=s',
+        'noop',
+        'no-encryption',
+        'no-print-statistics',
+        'outputlog=s',
+        'remotedir=s',
+        'remotehost=s',
+        'remoteport=s',
+        'remoteproto=s',
+        'remoteuser=s',
+        'remoteym=s',
+        'rootexclude=s@',
+        'ssh-backend=s',
+        'ssh-options=s',
+        'tempdir=s',
+        'time|restore-time|t=s',
+        'verbosity|v=s',
+        'volsize=i',
+       );
+
+    if ($opt{'archive-dir-hostname'}) {
+        $opt{'archive-dir'} = $opt{'archive-dir'} . '/' . $opt{'hostname'};
+    }
+    mkpath($opt{'archive-dir'});
+
+    # if remoteport is defined, we need to add it to ssh-options
+    if ($opt{'remoteport'}) {
+        $opt{'ssh-options'} = "-oPort=$opt{'remoteport'} " . $opt{'ssh-options'};
+    }
+
+    # --full is shorthand for --fullinterval now
+    if ($opt{'full'}) {
+        $opt{'fullinterval'} = 'now';
+    }
+
+    return %opt;
 }
 
 
