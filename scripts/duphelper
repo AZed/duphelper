@@ -367,6 +367,9 @@ sub dupback {
         "--verbosity",$opt{'verbosity'},
         "--volsize",$opt{'volsize'},
        );
+    if($opt{'asynchronous-upload'}) {
+        push(@syscmd,'--asynchronous-upload');
+    }
     if($opt{'dry-run'}) {
         push(@syscmd,'--dry-run');
     }
@@ -895,6 +898,7 @@ sub parse_options {
     my %opt = (
         'archive-dir'       => $config->val('duplicity','archive-dir') || '/var/cache/duplicity',
         'archive-dir-hostname' => $config->val('duphelper','archive-dir-hostname') || 1,
+        'asynchronous-upload' => $config->val('duplicity','asynchronous-upload') || 0,
         'cleancount'        => $config->val('duphelper','cleancount') || 2,
         'cleaninterval'     => $config->val('duphelper','cleaninterval') || '1Y',
         'dry-run'           => undef,
@@ -931,6 +935,7 @@ sub parse_options {
     GetOptions(
         \%opt,
         'archive-dir',
+        'asynchronous-upload|asynchronous|async',
         'cleaninterval=s',
         'encrypt-key=s@',
         'dry-run',
@@ -1344,6 +1349,7 @@ rootexclude=/var/cache/duplicity
 
 [duplicity]
 archive-dir=/var/cache/duplicity
+asynchronous-upload=0
 exclude-device-files=1
 exclude-filelist=/etc/duplicity/exclude
 exclude-globbing-filelist=/etc/duplicity/exclude.glob
