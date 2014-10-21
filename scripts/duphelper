@@ -325,12 +325,22 @@ my $command = basename($PROGRAM_NAME);
 
 if (defined $dispatch{$command}) {
     if (@{$opt{'separate-subdirs-list'}}) {
-        print "DEBUG: ",join(' | ',@ARGV),"\n";
+        # First we backup the target directory excluding all subdirs
+        my $opt_exclude_orig = $opt{'exclude'};
+        foreach my $subdir (@{$opt{'separate-subdirs-list'}}) {
+            push(@{$opt{'exclude'}},$backuppath.'/'.$subdir);
+        }
         $dispatch{$command}(@ARGV);
+
+        # Then we backup the remaining directories with the original
+        # exclusion list
+        $opt{'exclude'} = $opt_exclude_orig;
         my $startdir = $ARGV[0];
         foreach my $subdir (@{$opt{'separate-subdirs-list'}}) {
             shift;
             unshift(@ARGV, $startdir . '/' . $subdir);
+
+
             $dispatch{$command}(@ARGV);
         }
     }
@@ -1039,7 +1049,7 @@ sub parse_options {
         $opt{'fullinterval'} = 'now';
     }
 
-    # If backing up subdirs separately, add them to the excluded list
+    # Define the separate-subdirs-list as being all subdirectories of the target
     if ($opt{'separate-subdirs'}) {
         my $dh;
         opendir ($dh,$backuppath)
@@ -1050,14 +1060,6 @@ sub parse_options {
         closedir($dh)
           or die ("Failed to close target directory ${backuppath} after read!");
         $opt{'separate-subdirs-list'} = \@subdirs;
-        foreach my $subdir (@subdirs) {
-            push(@{$opt{'exclude'}},$backuppath.'/'.$subdir);
-        }
-    }
-    elsif ($opt{'separate-subdirs-list'}) {
-        foreach my $subdir (@{$opt{'separate-subdirs-list'}}) {
-            push(@{$opt{'exclude'}},$backuppath.'/'.$subdir);
-        }
     }
 
     return %opt;
