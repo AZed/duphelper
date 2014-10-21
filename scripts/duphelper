@@ -58,7 +58,6 @@ use Config::IniFiles;
 use File::Basename;
 use File::Path qw(mkpath);
 use File::Spec;
-use File::Util;
 use IPC::Open3;
 use Getopt::Long;
 use Sys::Hostname;
@@ -1042,10 +1041,14 @@ sub parse_options {
 
     # If backing up subdirs separately, add them to the excluded list
     if ($opt{'separate-subdirs'}) {
-        my $fu = File::Util->new();
-        my @subdirs = $fu->list_dir($backuppath  => { dirs_only => 1,
-                                                      no_fsdots => 1,
-                                                      recurse   => 0, });
+        my $dh;
+        opendir ($dh,$backuppath)
+          or die ("Failed to read target directory ${backuppath}!");
+        my @subdirs = grep {
+            -d "${backuppath}/$_" && ! /^\.{1,2}$/x
+        } readdir($dh);
+        closedir($dh)
+          or die ("Failed to close target directory ${backuppath} after read!");
         $opt{'separate-subdirs-list'} = \@subdirs;
         push(@{$opt{'exclude'}},@subdirs);
     }
