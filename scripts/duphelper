@@ -1050,10 +1050,14 @@ sub parse_options {
         closedir($dh)
           or die ("Failed to close target directory ${backuppath} after read!");
         $opt{'separate-subdirs-list'} = \@subdirs;
-        push(@{$opt{'exclude'}},@subdirs);
+        foreach my $subdir (@subdirs) {
+            push(@{$opt{'exclude'}},$backuppath.'/'.$subdir);
+        }
     }
     elsif ($opt{'separate-subdirs-list'}) {
-        push(@{$opt{'exclude'}},@{$opt{'separate-subdirs-list'}});
+        foreach my $subdir (@{$opt{'separate-subdirs-list'}}) {
+            push(@{$opt{'exclude'}},$backuppath.'/'.$subdir);
+        }
     }
 
     return %opt;
