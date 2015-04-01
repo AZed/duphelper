@@ -1082,6 +1082,9 @@ sub pidfile_running {
           or die("Found pidfile '",$pidfile,"' but unable to open it!\n");
         $pid=<$fh_pidfile>;
         close($fh_pidfile);
+        if(!$pid) {
+            return 0;
+        }
         if ( kill(0,$pid) ) { return 1; }
     }
     return 0;
@@ -1312,6 +1315,11 @@ sub system_logged {
     if($opt{'outputlog'} eq '-') {
         # We are printing directly to stdout/stderr
         $pid = open3("<&NULL",">&STDOUT",">&STDERR",@syscmd);
+        if(!$pid) {
+            print {*STDERR} "Failed to redirect stdout/stderr from system_logged()\n";
+            print {*STDERR} "System call: ",join(' ',@syscmd),"\n";
+            exit EXIT_SYSTEMFAIL;
+        }
         print {*$fh_pid} "${pid}\n";
         close($fh_pid) or die ("Unable to close pidfile '",$pidfile,"'!\n");
 
@@ -1325,6 +1333,11 @@ sub system_logged {
           or die("Failed to open '",$outlogfile,"' for append!\n");
 
         $pid = open3("<&NULL",">&OUTLOG",undef,@syscmd);
+        if(!$pid) {
+            print {*STDERR} "Failed to redirect stdout from system_logged()\n";
+            print {*STDERR} "System call: ",join(' ',@syscmd),"\n";
+            exit EXIT_SYSTEMFAIL;
+        }
         print {*$fh_pid} "${pid}\n";
         close($fh_pid) or die ("Unable to close pidfile '",$pidfile,"'!\n");
 
