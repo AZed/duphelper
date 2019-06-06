@@ -1228,7 +1228,9 @@ sub remote_create_dir {
         }
     }
     else {
-        print {*STDERR} "WARNING: unable to pre-create remote directory with protocol $proto\n";
+        if($opt{'verbosity'} >= 5) {
+            print {*STDERR} "WARNING: unable to pre-create remote directory with protocol $proto\n";
+        }
     }
     return;
 }
