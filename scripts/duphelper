@@ -90,6 +90,8 @@ convert to '@usr-local-etc', and YES this implies that if you have
 problems trying to back them up separately with this helper, so don't
 do that.)
 
+If no location-specific configuration files are found, duphelper.cfg
+will be used for global defaults for all backups.
 
 =head1 OPTIONS
 
@@ -176,10 +178,13 @@ Remote protocol, user, host, port, and backup path
 
 This will be used to generate the remote URL in the format:
 
-{remoteproto}://{remoteuser}@{remotehost}:{remoteport}{remotedir}
+    {remoteproto}://{remoteuser}@{remotehost}:{remoteport}{remotedir}
 
-The colon and {remoteport} will be skipped if remoteport is not given
-If remoteport is given, it will also automatically be added to
+If {remoteuser} is empty, the @ is skipped.
+
+If {remoteport} is empty, the colon is skipped.
+
+If {remoteport} is given, it will also automatically be added to
 ssh-options, below, and should not be specified there.
 
 =item --remoteym
@@ -1169,9 +1174,11 @@ sub remote_backup_exists {
         }
     }
     else {
-        print {*STDERR} "WARNING: unable to examine remote directories with protocol "
-                        . $opt{'remoteproto'} . "\n";
-        print {*STDERR} "WARNING: proceeding as if it exists anyway.\n";
+        if($opt{'verbosity'} >= 5) {
+            print {*STDERR} "WARNING: unable to examine remote directories with protocol "
+                            . $opt{'remoteproto'} . "\n";
+            print {*STDERR} "WARNING: proceeding as if it exists anyway.\n";
+        }
         return 1;
     }
     return 0;
@@ -1186,9 +1193,11 @@ sub remote_create_dir {
 
     if ($proto =~ /^(sftp|scp|ssh)/x ) {
         my $cmd = "echo '-mkdir duplicity/" . $opt{'hostname'}
-          . "' | sftp -b - " . $opt{'ssh-options'} . " "
-          . $opt{'remoteuser'} . '@' . $opt{'remotehost'}
-          . " >/dev/null 2>&1";
+          . "' | sftp -b - " . $opt{'ssh-options'} . " ";
+        if($opt{'remoteuser'}) {
+            $cmd .= $opt{'remoteuser'} . '@';
+        }
+        $cmd .= $opt{'remotehost'} . " >/dev/null 2>&1";
 
         if($opt{'noop'}) {
             print "Not executing: $cmd\n";
@@ -1202,10 +1211,12 @@ sub remote_create_dir {
         # remoteym is in use
         $ymdir = get_ymdir();
         if($ymdir) {
-            $cmd = "echo '-mkdir duplicity/" . $opt{'hostname'}
-                   . '/' . $ymdir . "' | sftp -b - " . $opt{'ssh-options'}
-                   . " " . $opt{'remoteuser'} . '@' . $opt{'remotehost'}
-                   . " >/dev/null 2>&1";
+            $cmd = "echo '-mkdir duplicity/" . $opt{'hostname'} . '/'
+                   . $ymdir . "' | sftp -b - " . $opt{'ssh-options'} . ' ';
+            if($opt{'remoteuser'}) {
+                $cmd .= $opt{'remoteuser'} . '@';
+            }
+            $cmd .= $opt{'remotehost'} . " >/dev/null 2>&1";
 
             if($opt{'noop'}) {
                 print "Not executing: $cmd\n";
@@ -1241,12 +1252,6 @@ sub remoteurl {
         print {*STDERR} "(You probably need to check your configuration.)\n";
         exit EXIT_CONFIGERROR;
     }
-    if(! $opt{'remoteuser'}) {
-        print {*STDERR}
-          "FATAL: attempted to generate a remote URL, but the remote user was not defined!\n";
-        print {*STDERR} "(You probably need to check your configuration.)\n";
-        exit EXIT_CONFIGERROR;
-    }
     if(! $opt{'remotehost'}) {
         print {*STDERR}
           "FATAL: attempted to generate a remote URL, but the remote host was not defined!\n";
@@ -1261,8 +1266,11 @@ sub remoteurl {
     }
 
     my $remoteurl =
-      $opt{'remoteproto'} . '://'
-      . $opt{'remoteuser'} . '@' . $opt{'remotehost'};
+      $opt{'remoteproto'} . '://';
+    if($opt{'remoteuser'}) {
+        $remoteurl .= $opt{'remoteuser'} . '@';
+    }
+    $remoteurl .= $opt{'remotehost'};
     if($opt{'remoteport'}) {
         $remoteurl .= ":" . $opt{'remoteport'};
     }
@@ -1414,9 +1422,12 @@ fullinterval=1M
 
 # Remote protocol, user, host, port, and backup path
 # This will be used to generate the remote URL in the format:
-# {remoteproto}://{remoteuser}@{remotehost}:{remoteport}{remotedir}
-# The colon and {remoteport} will be skipped if remoteport is not given
-# If remoteport is given, it will also automatically be added to
+#
+#     {remoteproto}://{remoteuser}@{remotehost}:{remoteport}{remotedir}
+#
+# If {remoteuser} is empty, the @ is skipped.
+# If {remoteport} is empty, the colon is skipped.
+# If {remoteport} is given, it will also automatically be added to
 # ssh-options, below, and should not be specified there.
 #remoteproto=ssh
 #remoteuser=backup
