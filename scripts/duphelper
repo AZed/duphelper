@@ -1429,7 +1429,7 @@ fullinterval=1M
 # If {remoteport} is empty, the colon is skipped.
 # If {remoteport} is given, it will also automatically be added to
 # ssh-options, below, and should not be specified there.
-#remoteproto=ssh
+#remoteproto=sftp
 #remoteuser=backup
 #remotehost=mybackuphost
 #remoteport=
