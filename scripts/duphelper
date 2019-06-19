@@ -278,6 +278,16 @@ all backups, such as:
 
 =item --exclude-other-filesystems
 
+=item --file-prefix-archive
+
+Prefix archive files (containing backup data, but not metadata) with
+this value.  A value ending in a slash will effectively place archive
+files into a subdirectory.  This can be useful if you are planning on
+using S3 lifecycle management to place data into infrequent access or
+glacier tiers.
+
+Backups and restores MUST use identical settings for this option!
+
 =item --gpg-options
 
 =item --log-file
@@ -317,7 +327,6 @@ my $yearmonth = sprintf("%04d%02d",localtime->year()+1900,localtime->mon()+1);
 if($opt{'home'}) {
     $ENV{'HOME'} = $opt{'home'};
 }
-
 
 #######################################
 ########## DISPATCH HANDLING ##########
@@ -437,9 +446,6 @@ sub dupback {
     if($opt{'dry-run'}) {
         push(@syscmd,'--dry-run');
     }
-    if($opt{'fullinterval'}) {
-        push(@syscmd,'--full-if-older-than',$opt{'fullinterval'});
-    }
     if($opt{'exclude'}) {
         foreach my $excluded (@{$opt{'exclude'}}) {
             push(@syscmd,'--exclude',$excluded);
@@ -458,6 +464,12 @@ sub dupback {
             push(@syscmd,'--exclude-globbing-filelist',
                  $opt{'exclude-globbing-filelist'});
         }
+    }
+    if($opt{'file-prefix-archive'}) {
+        push(@syscmd,'--file-prefix-archive',$opt{'file-prefix-archive'});
+    }
+    if($opt{'fullinterval'}) {
+        push(@syscmd,'--full-if-older-than',$opt{'fullinterval'});
     }
     if($opt{'log-file'}) {
         push(@syscmd,'--log-file',$opt{'log-file'});
@@ -548,6 +560,12 @@ sub dupclean {
     if($opt{'dry-run'}) {
         push(@syscmd,'--dry-run');
     }
+    if($opt{'file-prefix-archive'}) {
+        push(@syscmd,'--file-prefix-archive',$opt{'file-prefix-archive'});
+    }
+    if($opt{'gpg-options'}) {
+        push(@syscmd,'--gpg-options',$opt{'gpg-options'});
+    }
     if($opt{'no-print-statistics'}) {
         push(@syscmd,'--no-print-statistics');
     }
@@ -575,6 +593,9 @@ sub dupclean {
        );
     if($opt{'dry-run'}) {
         push(@syscmd,'--dry-run');
+    }
+    if($opt{'gpg-options'}) {
+        push(@syscmd,'--gpg-options',$opt{'gpg-options'});
     }
     if($opt{'ssh-backend'}) {
         push(@syscmd,'--ssh-backend',$opt{'ssh-backend'});
@@ -637,6 +658,12 @@ sub dupcleancount {
        );
     if($opt{'dry-run'}) {
         push(@syscmd,'--dry-run');
+    }
+    if($opt{'file-prefix-archive'}) {
+        push(@syscmd,'--file-prefix-archive',$opt{'file-prefix-archive'});
+    }
+    if($opt{'gpg-options'}) {
+        push(@syscmd,'--gpg-options',$opt{'gpg-options'});
     }
     if($opt{'no-print-statistics'}) {
         push(@syscmd,'--no-print-statistics');
@@ -716,6 +743,12 @@ sub dupget {
     if($opt{'dry-run'}) {
         push(@syscmd,'--dry-run');
     }
+    if($opt{'file-prefix-archive'}) {
+        push(@syscmd,'--file-prefix-archive',$opt{'file-prefix-archive'});
+    }
+    if($opt{'gpg-options'}) {
+        push(@syscmd,'--gpg-options',$opt{'gpg-options'});
+    }
     if($opt{'no-print-statistics'}) {
         push(@syscmd,'--no-print-statistics');
     }
@@ -774,6 +807,12 @@ sub duplist {
     if($opt{'dry-run'}) {
         push(@syscmd,'--dry-run');
     }
+    if($opt{'file-prefix-archive'}) {
+        push(@syscmd,'--file-prefix-archive',$opt{'file-prefix-archive'});
+    }
+    if($opt{'gpg-options'}) {
+        push(@syscmd,'--gpg-options',$opt{'gpg-options'});
+    }
     if($opt{'ssh-backend'}) {
         push(@syscmd,'--ssh-backend',$opt{'ssh-backend'});
     }
@@ -823,6 +862,9 @@ sub dupstat {
        );
     if($opt{'dry-run'}) {
         push(@syscmd,'--dry-run');
+    }
+    if($opt{'file-prefix-archive'}) {
+        push(@syscmd,'--file-prefix-archive',$opt{'file-prefix-archive'});
     }
     if($opt{'gpg-options'}) {
         push(@syscmd,'--gpg-options',$opt{'gpg-options'});
@@ -978,6 +1020,7 @@ sub parse_options {
         'exclude-filelist'  => $config->val('duplicity','exclude-filelist') || '/etc/duplicity/exclude',
         'exclude-globbing-filelist' => $config->val('duplicity','exclude-globbing-filelist') || '/etc/duplicity/exclude.glob',
         'exclude-other-filesystems' => $config->val('duplicity','exclude-other-filesystems') || 0,
+        'file-prefix-archive' => $config->val('duplicity','file-prefix-archive') || undef,
         'full'              => undef,
         'fullinterval'      => $config->val('duphelper','fullinterval') || '1M',
         'gpg-options'       => $config->val('encryption','gpg-options') || '',
@@ -1487,6 +1530,7 @@ exclude-device-files=1
 exclude-filelist=/etc/duplicity/exclude
 exclude-globbing-filelist=/etc/duplicity/exclude.glob
 exclude-other-filesystems=0
+#file-prefix-archive=archive/
 log-file=/var/log/duplicity.log
 no-print-statistics=1
 #ssh-backend=pexpect
