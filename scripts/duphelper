@@ -39,7 +39,7 @@ use English qw( -no_match_vars );
 #
 ## no critic qw(Variables::RequireLocalizedPunctuationVars)
 #
-# We are deliberately tampering with $ENV{'home'} in a global scope
+# We are deliberately tampering with $ENV{'HOME'} in a global scope
 #
 
 =head1 NAME
@@ -311,6 +311,13 @@ my %opt = parse_options($backuppath);
 # Current year and month as a 6-digit string, used when remoteym is
 my $yearmonth = sprintf("%04d%02d",localtime->year()+1900,localtime->mon()+1);
 
+# Setting the home directory may be desirable to force a specific
+# .aws or .gnupg directory to be used.
+
+if($opt{'home'}) {
+    $ENV{'HOME'} = $opt{'home'};
+}
+
 
 #######################################
 ########## DISPATCH HANDLING ##########
@@ -488,12 +495,6 @@ sub dupback {
         foreach my $key (@{$opt{'encrypt-key'}}) {
             push(@syscmd,'--encrypt-key',$key);
         }
-    }
-
-    # Setting the home directory may be desirable to force root's
-    # .gnupg directory to be used.
-    if($opt{'home'}) {
-        $ENV{'home'} = $opt{'home'};
     }
 
     remote_create_dir($opt{'remoteproto'});
@@ -1420,6 +1421,9 @@ cleaninterval=1Y
 
 # The default time after which a full backup is forced
 fullinterval=1M
+
+# Override the home directory here
+# home=/var/backups
 
 # Override the default detected hostname here
 # Don't do this unless you know what you are doing
