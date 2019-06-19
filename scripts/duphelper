@@ -823,6 +823,9 @@ sub dupstat {
     if($opt{'dry-run'}) {
         push(@syscmd,'--dry-run');
     }
+    if($opt{'gpg-options'}) {
+        push(@syscmd,'--gpg-options',$opt{'gpg-options'});
+    }
     if($opt{'no-print-statistics'}) {
         push(@syscmd,'--no-print-statistics');
     }
