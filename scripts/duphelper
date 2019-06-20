@@ -296,6 +296,16 @@ Backups and restores MUST use identical settings for this option!
 
 =item --no-print-statistics
 
+=item --s3-use-ia
+
+=item --s3-use-multiprocessing
+
+=item --s3-multipart-chunk-size
+
+=item --s3-multipart-max-procs
+
+=item --s3-multipart-max-timeout
+
 =item --ssh-backend
 
 Allows the explicit selection of a ssh backend.  Valid values are 'paramiko' and 'pexpect'
@@ -476,6 +486,21 @@ sub dupback {
     }
     if($opt{'no-print-statistics'}) {
         push(@syscmd,'--no-print-statistics');
+    }
+    if($opt{'s3-use-ia'}) {
+        push(@syscmd,'--s3-use-ia');
+    }
+    if($opt{'s3-use-multiprocessing'}) {
+        push(@syscmd,'--s3-use-multiprocessing');
+    }
+    if($opt{'s3-multipart-chunk-size'}) {
+        push(@syscmd,'--s3-multipart-chunk-size',$opt{'s3-multipart-chunk-size'});
+    }
+    if($opt{'s3-multipart-max-procs'}) {
+        push(@syscmd,'--s3-multipart-max-procs',$opt{'s3-multipart-max-procs'});
+    }
+    if($opt{'s3-multipart-max-timeout'}) {
+        push(@syscmd,'--s3-multipart-max-timeout',$opt{'s3-multipart-max-timeout'});
     }
     if($opt{'ssh-backend'}) {
         push(@syscmd,'--ssh-backend',$opt{'ssh-backend'});
@@ -752,6 +777,21 @@ sub dupget {
     if($opt{'no-print-statistics'}) {
         push(@syscmd,'--no-print-statistics');
     }
+    if($opt{'s3-use-ia'}) {
+        push(@syscmd,'--s3-use-ia');
+    }
+    if($opt{'s3-use-multiprocessing'}) {
+        push(@syscmd,'--s3-use-multiprocessing');
+    }
+    if($opt{'s3-multipart-chunk-size'}) {
+        push(@syscmd,'--s3-multipart-chunk-size',$opt{'s3-multipart-chunk-size'});
+    }
+    if($opt{'s3-multipart-max-procs'}) {
+        push(@syscmd,'--s3-multipart-max-procs',$opt{'s3-multipart-max-procs'});
+    }
+    if($opt{'s3-multipart-max-timeout'}) {
+        push(@syscmd,'--s3-multipart-max-timeout',$opt{'s3-multipart-max-timeout'});
+    }
     if($opt{'ssh-backend'}) {
         push(@syscmd,'--ssh-backend',$opt{'ssh-backend'});
     }
@@ -946,6 +986,7 @@ sub get_ymdir {
     return $ymdir;
 }
 
+
 sub loadconfig {
     # Load configuration options from a configuration file
     #
@@ -1038,6 +1079,11 @@ sub parse_options {
         'remoteuser'        => $config->val('duphelper','remoteuser') || undef,
         'remoteym'          => $config->val('duphelper','remoteym') || 0,
         'rootexclude'       => \@config_rootexclude || undef,
+        's3-use-ia'         => $config->val('duplicity','s3-use-ia') || 0,
+        's3-use-multiprocessing' => $config->val('duplicity','s3-use-multiprocessing') || 0,
+        's3-multipart-chunk-size' => $config->val('duplicity','s3-multipart-chunk-size') || undef,
+        's3-multipart-max-procs' => $config->val('duplicity','s3-multipart-max-procs') || undef,
+        's3-multipart-max-timeout' => $config->val('duplicity','s3-multipart-max-timeout') || undef,
         'separate-subdirs'  => $config->val('duphelper','separate-subdirs') || 0,
         'separate-subdirs-list' => \@config_subdirs_list || undef,
         'ssh-backend'       => $config->val('duplicity','ssh-backend') || undef,
@@ -1076,6 +1122,11 @@ sub parse_options {
         'remoteuser=s',
         'remoteym=s',
         'rootexclude=s@',
+        's3-use-ia',
+        's3-use-multiprocessing',
+        's3-multipart-chunk-size=i',
+        's3-multipart-max-procs=i',
+        's3-multipart-max-timeout=i',
         'separate-subdirs|sepsub',
         'separate-subdirs-list|sepsublist=s@',
         'ssh-backend=s',
@@ -1534,6 +1585,11 @@ exclude-other-filesystems=0
 #file-prefix-archive=archive/
 log-file=/var/log/duplicity.log
 no-print-statistics=1
+#s3-use-ia=1
+#s3-use-multiprocessing=1
+#s3-multipart-chunk-size=10
+#s3-multipart-max-procs=2
+#s3-multipart-max-timeout=60
 #ssh-backend=pexpect
 #ssh-options=-oIdentityFile=/root/.ssh/id_rsa-backup
 verbosity=1
