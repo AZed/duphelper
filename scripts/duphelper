@@ -1446,6 +1446,7 @@ sub system_result {
 __DATA__
 #
 # duphelper.cfg
+# =============
 #
 # Configuration file for Duplicity Helper
 #
