@@ -139,7 +139,12 @@ This is the time after which a full backup is forced.  If set to
 =item --home
 
 This will set the environment variable HOME before the duplicity call,
-e.g. to force root's .gnupg directory to be used.
+e.g. to force AWS credentials or a particular .gnupg directory to be
+used.
+
+If you want GPG to use a different directory than AWS credentials, use
+--home to point to the credentials, then use --gpg-options to set
+--homedir there.
 
 =item --hostname | -h
 
@@ -273,8 +278,8 @@ dupback calls, with glob parsing applied.  A common use for this is to
 declare particular files or directories that will always be ignored in
 all backups, such as:
 
- **/nobackup
- **/private
+   **/nobackup
+   **/private
 
 =item --exclude-other-filesystems
 
@@ -289,6 +294,13 @@ glacier tiers.
 Backups and restores MUST use identical settings for this option!
 
 =item --gpg-options
+
+Options to be passed directly to GnuPG for encryption.  Common
+examples:
+
+    --homedir /root/.gnupg
+    --trust-model=always
+    --compress-algo=none
 
 =item --log-file
 
