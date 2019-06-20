@@ -320,6 +320,15 @@ Allows the explicit selection of a ssh backend.  Valid values are 'paramiko' and
 
 =item --volsize
 
+Size of individual data volumes to pack and upload.  Large volumes
+will consume more memory, temp space, and set a minimum data transfer
+to retrieve a single file, but reduce the number of individual files
+stored on the filesystem.
+
+Smaller volume sizes may help with poor network connections, but if a
+S3 compatible backend is use, consider using --s3-multipart-chunk-size
+instead.
+
 =back
 
 =cut
@@ -1091,7 +1100,7 @@ sub parse_options {
         'tempdir'           => $config->val('duplicity','tempdir') || undef,
         'time'              => undef,
         'verbosity'         => $config->val('duplicity','verbosity') || 4,
-        'volsize'           => $config->val('duplicity','volsize') || 25,
+        'volsize'           => $config->val('duplicity','volsize') || 200,
        );
 
     GetOptions(
@@ -1593,7 +1602,7 @@ no-print-statistics=1
 #ssh-backend=pexpect
 #ssh-options=-oIdentityFile=/root/.ssh/id_rsa-backup
 verbosity=1
-volsize=25
+#volsize=30
 
 
 [encryption]
