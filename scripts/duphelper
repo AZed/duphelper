@@ -293,6 +293,11 @@ glacier tiers.
 
 Backups and restores MUST use identical settings for this option!
 
+=item --gpg-binary
+
+Name of the gpg executable.  Defaults to 'gpg', found via PATH, but it
+may be useful to set it to 'gpg2' in some environments.
+
 =item --gpg-options
 
 Options to be passed directly to GnuPG for encryption.  Common
@@ -546,6 +551,9 @@ sub dupback {
     if($opt{'no-encryption'}) {
         push(@syscmd,'--no-encryption');
     }
+    if($opt{'gpg-binary'}) {
+        push(@syscmd,'--gpg-binary',$opt{'gpg-binary'});
+    }
     if($opt{'gpg-options'}) {
         push(@syscmd,'--gpg-options',$opt{'gpg-options'});
     }
@@ -609,6 +617,9 @@ sub dupclean {
     if($opt{'file-prefix-archive'}) {
         push(@syscmd,'--file-prefix-archive',$opt{'file-prefix-archive'});
     }
+    if($opt{'gpg-binary'}) {
+        push(@syscmd,'--gpg-binary',$opt{'gpg-binary'});
+    }
     if($opt{'gpg-options'}) {
         push(@syscmd,'--gpg-options',$opt{'gpg-options'});
     }
@@ -639,6 +650,9 @@ sub dupclean {
        );
     if($opt{'dry-run'}) {
         push(@syscmd,'--dry-run');
+    }
+    if($opt{'gpg-binary'}) {
+        push(@syscmd,'--gpg-binary',$opt{'gpg-binary'});
     }
     if($opt{'gpg-options'}) {
         push(@syscmd,'--gpg-options',$opt{'gpg-options'});
@@ -707,6 +721,9 @@ sub dupcleancount {
     }
     if($opt{'file-prefix-archive'}) {
         push(@syscmd,'--file-prefix-archive',$opt{'file-prefix-archive'});
+    }
+    if($opt{'gpg-binary'}) {
+        push(@syscmd,'--gpg-binary',$opt{'gpg-binary'});
     }
     if($opt{'gpg-options'}) {
         push(@syscmd,'--gpg-options',$opt{'gpg-options'});
@@ -792,6 +809,9 @@ sub dupget {
     if($opt{'file-prefix-archive'}) {
         push(@syscmd,'--file-prefix-archive',$opt{'file-prefix-archive'});
     }
+    if($opt{'gpg-binary'}) {
+        push(@syscmd,'--gpg-binary',$opt{'gpg-binary'});
+    }
     if($opt{'gpg-options'}) {
         push(@syscmd,'--gpg-options',$opt{'gpg-options'});
     }
@@ -871,6 +891,9 @@ sub duplist {
     if($opt{'file-prefix-archive'}) {
         push(@syscmd,'--file-prefix-archive',$opt{'file-prefix-archive'});
     }
+    if($opt{'gpg-binary'}) {
+        push(@syscmd,'--gpg-binary',$opt{'gpg-binary'});
+    }
     if($opt{'gpg-options'}) {
         push(@syscmd,'--gpg-options',$opt{'gpg-options'});
     }
@@ -926,6 +949,9 @@ sub dupstat {
     }
     if($opt{'file-prefix-archive'}) {
         push(@syscmd,'--file-prefix-archive',$opt{'file-prefix-archive'});
+    }
+    if($opt{'gpg-binary'}) {
+        push(@syscmd,'--gpg-binary',$opt{'gpg-binary'});
     }
     if($opt{'gpg-options'}) {
         push(@syscmd,'--gpg-options',$opt{'gpg-options'});
@@ -1085,6 +1111,7 @@ sub parse_options {
         'file-prefix-archive' => $config->val('duplicity','file-prefix-archive') || undef,
         'full'              => undef,
         'fullinterval'      => $config->val('duphelper','fullinterval') || '1M',
+        'gpg-binary'        => $config->val('encryption','gpg-binary') || undef,
         'gpg-options'       => $config->val('encryption','gpg-options') || '',
         'home'              => $config->val('duphelper','home') || undef,
         'hostname'          => $config->val('duphelper','hostname') || hostname(),
@@ -1128,6 +1155,7 @@ sub parse_options {
         'exclude-globbing-filelist=s',
         'full',
         'fullinterval=s',
+        'gpg-binary=s',
         'gpg-options=s',
         'home=s',
         'hostname|h=s',
@@ -1626,4 +1654,5 @@ no-encryption=0
 #encrypt-key=BEEFDEAD
 
 # Options passed through to GnuPG for backups
+#gpg-binary=gpg2
 #gpg-options=--homedir /root/.gnupg --trust-model=always
