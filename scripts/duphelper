@@ -323,6 +323,13 @@ examples:
 
 =item --s3-multipart-max-timeout
 
+=item --s3-use-new-style
+
+When operating on Amazon S3 buckets, use new-style subdomain bucket
+addressing. This is now the preferred method to access Amazon S3, but
+is not backwards compatible if your bucket name contains upper-case
+characters or other characters that are not valid in a hostname.
+
 =item --ssh-backend
 
 Allows the explicit selection of a ssh backend.  Valid values are 'paramiko' and 'pexpect'
@@ -513,12 +520,6 @@ sub dupback {
     if($opt{'no-print-statistics'}) {
         push(@syscmd,'--no-print-statistics');
     }
-    if($opt{'s3-use-ia'}) {
-        push(@syscmd,'--s3-use-ia');
-    }
-    if($opt{'s3-use-multiprocessing'}) {
-        push(@syscmd,'--s3-use-multiprocessing');
-    }
     if($opt{'s3-multipart-chunk-size'}) {
         push(@syscmd,'--s3-multipart-chunk-size',$opt{'s3-multipart-chunk-size'});
     }
@@ -527,6 +528,15 @@ sub dupback {
     }
     if($opt{'s3-multipart-max-timeout'}) {
         push(@syscmd,'--s3-multipart-max-timeout',$opt{'s3-multipart-max-timeout'});
+    }
+    if($opt{'s3-use-ia'}) {
+        push(@syscmd,'--s3-use-ia');
+    }
+    if($opt{'s3-use-multiprocessing'}) {
+        push(@syscmd,'--s3-use-multiprocessing');
+    }
+    if($opt{'s3-use-new-style'}) {
+        push(@syscmd,'--s3-use-new-style');
     }
     if($opt{'ssh-backend'}) {
         push(@syscmd,'--ssh-backend',$opt{'ssh-backend'});
@@ -625,6 +635,9 @@ sub dupclean {
     }
     if($opt{'no-print-statistics'}) {
         push(@syscmd,'--no-print-statistics');
+    }
+    if($opt{'s3-use-new-style'}) {
+        push(@syscmd,'--s3-use-new-style');
     }
     if($opt{'ssh-backend'}) {
         push(@syscmd,'--ssh-backend',$opt{'ssh-backend'});
@@ -731,6 +744,9 @@ sub dupcleancount {
     if($opt{'no-print-statistics'}) {
         push(@syscmd,'--no-print-statistics');
     }
+    if($opt{'s3-use-new-style'}) {
+        push(@syscmd,'--s3-use-new-style');
+    }
     if($opt{'ssh-backend'}) {
         push(@syscmd,'--ssh-backend',$opt{'ssh-backend'});
     }
@@ -824,6 +840,9 @@ sub dupget {
     if($opt{'s3-use-multiprocessing'}) {
         push(@syscmd,'--s3-use-multiprocessing');
     }
+    if($opt{'s3-use-new-style'}) {
+        push(@syscmd,'--s3-use-new-style');
+    }
     if($opt{'s3-multipart-chunk-size'}) {
         push(@syscmd,'--s3-multipart-chunk-size',$opt{'s3-multipart-chunk-size'});
     }
@@ -897,6 +916,9 @@ sub duplist {
     if($opt{'gpg-options'}) {
         push(@syscmd,'--gpg-options',$opt{'gpg-options'});
     }
+    if($opt{'s3-use-new-style'}) {
+        push(@syscmd,'--s3-use-new-style');
+    }
     if($opt{'ssh-backend'}) {
         push(@syscmd,'--ssh-backend',$opt{'ssh-backend'});
     }
@@ -958,6 +980,9 @@ sub dupstat {
     }
     if($opt{'no-print-statistics'}) {
         push(@syscmd,'--no-print-statistics');
+    }
+    if($opt{'s3-use-new-style'}) {
+        push(@syscmd,'--s3-use-new-style');
     }
     if($opt{'ssh-backend'}) {
         push(@syscmd,'--ssh-backend',$opt{'ssh-backend'});
@@ -1129,6 +1154,7 @@ sub parse_options {
         'rootexclude'       => \@config_rootexclude || undef,
         's3-use-ia'         => $config->val('duplicity','s3-use-ia') || 0,
         's3-use-multiprocessing' => $config->val('duplicity','s3-use-multiprocessing') || 0,
+        's3-use-new-style'  => $config->val('duplicity','s3-use-new-style') || 0,
         's3-multipart-chunk-size' => $config->val('duplicity','s3-multipart-chunk-size') || undef,
         's3-multipart-max-procs' => $config->val('duplicity','s3-multipart-max-procs') || undef,
         's3-multipart-max-timeout' => $config->val('duplicity','s3-multipart-max-timeout') || undef,
@@ -1173,6 +1199,7 @@ sub parse_options {
         'rootexclude=s@',
         's3-use-ia',
         's3-use-multiprocessing',
+        's3-use-new-style',
         's3-multipart-chunk-size=i',
         's3-multipart-max-procs=i',
         's3-multipart-max-timeout=i',
@@ -1636,6 +1663,7 @@ log-file=/var/log/duplicity.log
 no-print-statistics=1
 #s3-use-ia=1
 #s3-use-multiprocessing=1
+#s3-use-new-style=1
 #s3-multipart-chunk-size=10
 #s3-multipart-max-procs=2
 #s3-multipart-max-timeout=60
